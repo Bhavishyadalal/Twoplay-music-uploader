@@ -1761,6 +1761,43 @@ function ghPutWithRetry(path, base64Content, message, sha) {
     return ghWithRetry(() => ghPut(path, base64Content, message, sha));
 }
 
+/**
+ * Uploads a single file to a path, retrying the *whole* get-sha-then-put
+ * cycle on conflict rather than just replaying the same PUT with a now-
+ * stale sha. ghPutWithRetry alone can't recover from a real conflict (two
+ * queued files sanitizing to the same filename and racing each other,
+ * or the file changing between our GET and PUT) because it keeps
+ * resubmitting the exact same sha it already knows is wrong — it only
+ * ever fixes the eventual-consistency case where the sha was actually
+ * right all along and GitHub just hadn't caught up yet. Re-fetching the
+ * sha on every attempt fixes both cases.
+ */
+async function uploadFileWithRetry(path, base64Content, message, maxAttempts = 8) {
+    let lastErr;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const existing = await ghGet(path);
+            return await ghPut(path, base64Content, message, existing ? existing.sha : undefined);
+        } catch (e) {
+            lastErr = e;
+            const status = e && e.status;
+            const msg = (e && e.message || '').toLowerCase();
+            const isConflict = status === 409 || msg.includes('does not match') || msg.includes('sha');
+            const isRateLimited = status === 403 && msg.includes('rate limit');
+            const isTransient = status >= 500;
+            if (isRateLimited) {
+                if (attempt === maxAttempts) throw e;
+                await new Promise(r => setTimeout(r, 2000 * attempt));
+                continue;
+            }
+            if ((!isConflict && !isTransient) || attempt === maxAttempts) throw e;
+            const backoff = Math.min(400 * Math.pow(1.6, attempt - 1), 4000);
+            await new Promise(r => setTimeout(r, backoff + Math.random() * 200));
+        }
+    }
+    throw lastErr;
+}
+
 /** Turns a raw error into a short, useful message for the queue UI. */
 function describeUploadError(e) {
     const status = e && e.status;
@@ -1843,8 +1880,7 @@ async function doUpload() {
 
                 const safeName = sanitizeFilename(item.file.name);
                 const targetPath = `${MUSIC_DIR}/${safeName}`;
-                const existing = await ghGetWithRetry(targetPath);
-                await ghPutWithRetry(targetPath, base64, `Add music track: ${safeName}`, existing ? existing.sha : undefined);
+                await uploadFileWithRetry(targetPath, base64, `Add music track: ${safeName}`);
 
                 item.fileUploaded = true;
                 item.safeName = safeName;
