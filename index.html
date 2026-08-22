@@ -1550,7 +1550,7 @@ function renderQueue() {
         meta.className = 'queue-meta';
         meta.innerHTML = `<span>${formatBytes(item.file.size)}</span>` + (item.dup ? `<span class="warn-tag">already on site — will overwrite</span>` : '') +
             (item.status === 'done' ? `<span style="color:var(--good); font-weight:800;">uploaded</span>` : '') +
-            (item.status === 'failed' ? `<span style="color:var(--bad); font-weight:800;">failed</span>` : '');
+            (item.status === 'failed' ? `<span style="color:var(--bad); font-weight:800;" title="${escapeHtml(item.error || 'Unknown error')}">failed: ${escapeHtml(item.error || 'Unknown error')}</span>` : '');
         info.appendChild(meta);
 
         const itemProgress = document.createElement('div');
@@ -1677,6 +1677,81 @@ async function ghPut(path, base64Content, message, sha) {
     return res.json();
 }
 
+/* The Contents API (ghPut above) chokes on files much over ~1MB because the
+   whole base64 payload has to go in a single JSON request body, and GitHub
+   will reject or time out on large ones. The Git Data API (blob -> tree ->
+   commit) has no such practical ceiling and is what we use for real MP3s. */
+async function ghPutLargeFile(path, base64Content, message) {
+    // 1. Create a blob with the file content
+    const blobRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/blobs`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: base64Content, encoding: 'base64' })
+    });
+    if (!blobRes.ok) {
+        const err = await blobRes.json().catch(() => ({}));
+        throw new Error(err.message || `GitHub blob create failed (${blobRes.status})`);
+    }
+    const blob = await blobRes.json();
+
+    // 2. Get the latest commit on the branch, and its tree
+    const refRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/ref/heads/${BRANCH}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (!refRes.ok) throw new Error(`GitHub ref lookup failed (${refRes.status})`);
+    const ref = await refRes.json();
+    const baseCommitSha = ref.object.sha;
+
+    const commitRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/commits/${baseCommitSha}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (!commitRes.ok) throw new Error(`GitHub commit lookup failed (${commitRes.status})`);
+    const baseCommit = await commitRes.json();
+
+    // 3. Create a new tree with the blob placed at `path`
+    const treeRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/trees`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            base_tree: baseCommit.tree.sha,
+            tree: [{ path, mode: '100644', type: 'blob', sha: blob.sha }]
+        })
+    });
+    if (!treeRes.ok) {
+        const err = await treeRes.json().catch(() => ({}));
+        throw new Error(err.message || `GitHub tree create failed (${treeRes.status})`);
+    }
+    const tree = await treeRes.json();
+
+    // 4. Create a commit pointing at the new tree
+    const newCommitRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/commits`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, tree: tree.sha, parents: [baseCommitSha] })
+    });
+    if (!newCommitRes.ok) {
+        const err = await newCommitRes.json().catch(() => ({}));
+        throw new Error(err.message || `GitHub commit create failed (${newCommitRes.status})`);
+    }
+    const newCommit = await newCommitRes.json();
+
+    // 5. Move the branch ref to point at the new commit
+    const updateRefRes = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/git/refs/heads/${BRANCH}`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sha: newCommit.sha })
+    });
+    if (!updateRefRes.ok) {
+        const err = await updateRefRes.json().catch(() => ({}));
+        throw new Error(err.message || `GitHub ref update failed (${updateRefRes.status})`);
+    }
+    return newCommit;
+}
+
+// Files at/under this size use the simpler Contents API; bigger ones go
+// through the Git Data API (blob/tree/commit) which handles large files reliably.
+const LARGE_FILE_THRESHOLD = 1024 * 1024; // 1MB
+
 async function ghDelete(path, message, sha) {
     const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`, {
         method: 'DELETE',
@@ -1749,8 +1824,15 @@ async function doUpload() {
 
             const safeName = sanitizeFilename(item.file.name);
             const targetPath = `${MUSIC_DIR}/${safeName}`;
-            const existing = await ghGet(targetPath);
-            await ghPut(targetPath, base64, `Add music track: ${safeName}`, existing ? existing.sha : undefined);
+
+            if (item.file.size > LARGE_FILE_THRESHOLD) {
+                // Big files: skip the Contents API entirely and use the Git Data API,
+                // which doesn't need an existing-sha lookup or choke on payload size.
+                await ghPutLargeFile(targetPath, base64, `Add music track: ${safeName}`);
+            } else {
+                const existing = await ghGet(targetPath);
+                await ghPut(targetPath, base64, `Add music track: ${safeName}`, existing ? existing.sha : undefined);
+            }
 
             progressLabel.textContent = 'Updating playlist…';
             progressFill.style.width = `${((done + 0.85) / total) * 100}%`;
@@ -1766,7 +1848,9 @@ async function doUpload() {
         } catch (e) {
             item.status = 'failed';
             item.progress = 0;
+            item.error = (e && e.message) ? e.message : 'Unknown error';
             failedCount++;
+            console.error('Upload failed for', item.file.name, e);
         }
         done++;
         progressFill.style.width = `${(done / total) * 100}%`;
