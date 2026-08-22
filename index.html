@@ -298,7 +298,19 @@ html[data-theme="dark"] .card:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.36); 
 #cover-input { display: none; }
 
 /* queue of files to upload */
-.queue-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.queue-list {
+    display: flex; flex-direction: column; gap: 8px; margin-top: 12px;
+    max-height: min(490px, 52vh); overflow-y: auto; overflow-x: hidden;
+    padding-right: 4px; scroll-behavior: smooth;
+}
+.queue-list::-webkit-scrollbar { width: 7px; }
+.queue-list::-webkit-scrollbar-track { background: transparent; }
+.queue-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.queue-list::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+.queue-list { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.queue-count { display: none; align-items: center; justify-content: space-between; font-size: 11px; font-weight: 800; color: var(--text-faint); margin-top: 10px; padding: 0 2px; }
+.queue-count.show { display: flex; }
+.queue-count .accent { color: var(--accent); }
 .queue-item {
     display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-2);
     border: 2px solid var(--border-soft); border-radius: var(--blob-sm);
@@ -754,6 +766,10 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
         <input type="file" id="cover-input" accept="image/*">
 
         <div class="queue-list" id="queue-list"></div>
+        <div class="queue-count" id="queue-count">
+            <span id="queue-count-text"></span>
+            <span>scroll for more ↓</span>
+        </div>
 
         <button class="btn btn-primary" id="upload-btn" disabled>
             <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -982,6 +998,8 @@ const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('file-input');
 const coverInput = document.getElementById('cover-input');
 const queueList = document.getElementById('queue-list');
+const queueCount = document.getElementById('queue-count');
+const queueCountText = document.getElementById('queue-count-text');
 const uploadBtn = document.getElementById('upload-btn');
 const uploadBtnText = document.getElementById('upload-btn-text');
 const progressWrap = document.getElementById('progress-wrap');
@@ -1581,7 +1599,27 @@ function renderQueue() {
         row.appendChild(actions);
         queueList.appendChild(row);
     });
+    updateQueueCount();
 }
+
+function updateQueueCount() {
+    const n = queue.length;
+    if (n > 5) {
+        queueCount.classList.add('show');
+        queueCountText.innerHTML = `<span class="accent">${n}</span> files queued`;
+        refreshQueueScrollHint();
+    } else {
+        queueCount.classList.remove('show');
+    }
+}
+
+const queueScrollHint = document.querySelector('#queue-count span:last-child');
+function refreshQueueScrollHint() {
+    if (!queueScrollHint) return;
+    const atBottom = queueList.scrollHeight - queueList.scrollTop - queueList.clientHeight < 8;
+    queueScrollHint.textContent = atBottom ? 'scroll up for more ↑' : 'scroll for more ↓';
+}
+queueList.addEventListener('scroll', refreshQueueScrollHint);
 
 function formatBytes(bytes) {
     if (bytes < 1024) return bytes + ' B';
