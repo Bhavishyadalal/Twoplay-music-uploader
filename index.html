@@ -321,6 +321,11 @@ html[data-theme="dark"] .card:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.36); 
 .queue-title-input:focus { outline: none; border-bottom-color: var(--accent); }
 .queue-meta { font-size: 11px; color: var(--text-faint); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .queue-meta .warn-tag { color: var(--warn); font-weight: 800; }
+.queue-item-progress { height: 3px; border-radius: 2px; background: var(--border); overflow: hidden; margin-top: 6px; display: none; }
+.queue-item-progress.show { display: block; }
+.queue-item-progress-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; transition: width 0.2s ease; }
+.queue-item.done .queue-item-progress-fill { background: var(--good); }
+.queue-item.failed .queue-item-progress-fill { background: var(--bad); }
 .queue-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .queue-remove, .queue-cover-btn { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); flex-shrink: 0; transition: background 0.15s, color 0.15s, transform 0.15s; }
 .queue-remove:hover { background: var(--surface-3); color: var(--bad); transform: scale(1.1) rotate(90deg); }
@@ -397,6 +402,8 @@ html[data-theme="dark"] .card:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.36); 
 html[data-theme="dark"] .banner.success { color: #9EE8C0; }
 .banner.error { background: var(--bad-dim); color: #A83C3C; }
 html[data-theme="dark"] .banner.error { color: #FFB3B3; }
+.banner.warn { background: var(--warn-dim); color: #9A6A1E; }
+html[data-theme="dark"] .banner.warn { color: #F5D18C; }
 .banner svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
 .banner a { color: inherit; text-decoration: underline; }
 .banner-actions { margin-top: 4px; }
@@ -451,13 +458,49 @@ html[data-theme="dark"] .banner.error { color: #FFB3B3; }
 .track-drag-handle:active { cursor: grabbing; }
 .track-row.drag-over { border-color: var(--accent); background: var(--accent-dim); transform: scale(1.01); }
 .track-row.dragging { opacity: 0.35; transform: scale(0.98) rotate(-1deg); }
+.track-row.now-playing { border-color: var(--accent); background: var(--accent-dim); }
+.track-row.now-playing .track-row-name { color: var(--accent); }
 .track-cover { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; object-fit: cover; background: var(--surface-3); transition: transform 0.2s; }
 .track-row:hover .track-cover { transform: scale(1.08) rotate(-2deg); }
-.track-row-name { flex: 1; font-weight: 700; font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-row-namewrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.track-row-name { font-weight: 700; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .track-row-name mark { background: var(--accent-dim); color: var(--text); border-radius: 3px; padding: 0 1px; }
+.track-row-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.track-row-duration { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); }
+.tag-chip { font-size: 9.5px; font-weight: 800; color: var(--accent-2); background: var(--accent-2-dim); padding: 1.5px 7px; border-radius: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+.track-select-box { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; margin-right: 2px; }
+
+.bulk-bar { display: none; align-items: center; justify-content: space-between; gap: 10px; background: var(--accent-dim); border: 2px solid var(--accent); border-radius: var(--blob-sm); padding: 9px 12px; margin-bottom: 10px; animation: fade-up 0.25s ease both; }
+.bulk-bar.show { display: flex; }
+.bulk-bar-label { font-size: 12px; font-weight: 800; color: var(--text); }
+.bulk-bar-actions { display: flex; gap: 6px; }
+.bulk-bar-btn { font-size: 11.5px; font-weight: 800; padding: 6px 11px; border-radius: 9px; background: var(--surface); border: 2px solid var(--border); transition: transform 0.12s, border-color 0.15s; }
+.bulk-bar-btn:hover { transform: translateY(-1px); border-color: var(--accent); }
+.bulk-bar-btn.danger { color: var(--bad); }
+.bulk-bar-btn.danger:hover { border-color: var(--bad); }
+
+/* tag editor */
+.tag-editor-input { width: 100%; padding: 9px 11px; border: 2px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 11px; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.tag-editor-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-dim); }
+.tag-editor-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; min-height: 22px; }
+.tag-editor-chip { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; color: var(--accent-2); background: var(--accent-2-dim); padding: 3px 5px 3px 9px; border-radius: 9px; text-transform: uppercase; letter-spacing: 0.03em; animation: scale-in 0.2s ease both; }
+.tag-editor-chip button { display: flex; color: var(--accent-2); opacity: 0.7; }
+.tag-editor-chip button:hover { opacity: 1; }
+.tag-editor-chip button svg { width: 11px; height: 11px; }
+
 .track-empty { font-size: 12.5px; color: var(--text-faint); padding: 18px 2px; text-align: center; animation: fade-up 0.4s ease both; }
 .track-empty-cat { width: 64px; height: 64px; margin: 0 auto 10px; opacity: 0.85; animation: cat-idle-bob 3.6s ease-in-out infinite; }
-.refresh-btn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--accent); margin-bottom: 12px; transition: transform 0.15s, opacity 0.15s; }
+.refresh-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.refresh-btn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--accent); transition: transform 0.15s, opacity 0.15s; }
+.last-synced { font-size: 10.5px; color: var(--text-faint); font-family: var(--font-mono); }
+.lib-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; animation: fade-up 0.35s ease both; }
+.lib-stat { background: var(--surface); border: 2px solid var(--border); border-radius: var(--blob-sm); padding: 10px 12px; }
+.lib-stat-num { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--accent); }
+.lib-stat-label { font-size: 9.5px; font-weight: 800; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
+.lib-stat-bar { height: 4px; border-radius: 3px; background: var(--border); margin-top: 6px; overflow: hidden; }
+.lib-stat-bar-fill { height: 100%; background: var(--accent-2); border-radius: 3px; transition: width 0.4s ease; }
+.lib-stat-bar-fill.warn { background: var(--warn); }
+.lib-stat-bar-fill.danger { background: var(--bad); }
 .refresh-btn:hover { transform: translateX(2px); opacity: 0.8; }
 .refresh-btn svg { width: 14px; height: 14px; transition: transform 0.4s cubic-bezier(.34,1.56,.64,1); }
 .refresh-btn:hover svg { transform: rotate(90deg); }
@@ -486,8 +529,32 @@ html[data-theme="dark"] .banner.error { color: #FFB3B3; }
 }
 .track-rename-input:focus { outline: none; }
 
-.mini-player { grid-column: 1 / -1; margin-top: 8px; animation: fade-up 0.3s ease both; }
-.mini-player audio { width: 100%; height: 30px; }
+.mini-player { grid-column: 1 / -1; margin-top: 8px; animation: fade-up 0.3s ease both; background: var(--surface-2); border: 2px solid var(--border); border-radius: var(--blob-md); padding: 10px 12px; }
+.mini-player audio { display: none; }
+.mp-top { display: flex; align-items: center; gap: 10px; }
+.mp-cover { width: 36px; height: 36px; border-radius: 9px; object-fit: cover; flex-shrink: 0; background: var(--surface-3); }
+.mp-cover-fallback { width: 36px; height: 36px; border-radius: 9px; background: var(--surface-3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--accent); }
+.mp-cover-fallback svg { width: 17px; height: 17px; }
+.mp-info { flex: 1; min-width: 0; }
+.mp-title { font-size: 12.5px; font-weight: 800; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-sub { font-size: 10.5px; color: var(--text-faint); font-family: var(--font-mono); margin-top: 1px; }
+.mp-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.mp-btn { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-dim); transition: background 0.15s, color 0.15s, transform 0.12s; }
+.mp-btn:hover { background: var(--surface-3); color: var(--text); }
+.mp-btn:active { transform: scale(0.9); }
+.mp-btn:disabled { opacity: 0.3; pointer-events: none; }
+.mp-btn svg { width: 15px; height: 15px; }
+.mp-btn.play-toggle { width: 34px; height: 34px; background: var(--accent); color: #fff; }
+.mp-btn.play-toggle:hover { background: var(--accent); filter: brightness(1.08); }
+.mp-btn.play-toggle svg { width: 15px; height: 15px; }
+.mp-seek-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.mp-time { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint); min-width: 30px; text-align: center; }
+.mp-seek { flex: 1; -webkit-appearance: none; appearance: none; height: 5px; border-radius: 3px; background: var(--border); outline: none; cursor: pointer; }
+.mp-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+.mp-seek::-moz-range-thumb { width: 13px; height: 13px; border-radius: 50%; background: var(--accent); border: none; cursor: pointer; }
+.mp-seek::-webkit-slider-runnable-track { height: 5px; border-radius: 3px; }
+.mp-close { color: var(--text-faint); }
+.mp-close:hover { color: var(--bad); }
 
 /* keyboard shortcuts sheet */
 .kbd-grid { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 6px; }
@@ -499,6 +566,9 @@ html[data-theme="dark"] .banner.error { color: #FFB3B3; }
 .kbd-grid .kbd-row:nth-child(5) { animation-delay: 0.14s; }
 .kbd-grid .kbd-row:nth-child(6) { animation-delay: 0.17s; }
 .kbd-grid .kbd-row:nth-child(7) { animation-delay: 0.2s; }
+.kbd-grid .kbd-row:nth-child(8) { animation-delay: 0.23s; }
+.kbd-grid .kbd-row:nth-child(9) { animation-delay: 0.26s; }
+.kbd-grid .kbd-row:nth-child(10) { animation-delay: 0.29s; }
 .kbd-row .keys { display: flex; gap: 4px; }
 .key { font-family: var(--font-mono); font-size: 11px; font-weight: 700; background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 6px; padding: 3px 7px; transition: transform 0.15s, background 0.15s; }
 .kbd-row:hover .key { background: var(--accent-dim); transform: translateY(-1px); }
@@ -661,6 +731,10 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
             <span class="status-dot" id="conn-dot"></span>
             <span id="conn-text">Not connected yet</span>
         </div>
+        <div class="banner warn" id="token-expiry-banner">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="token-expiry-text"></span>
+        </div>
     </div>
 
     <!-- UPLOAD CARD -->
@@ -710,10 +784,25 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
             <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
             On the site right now
         </h2>
-        <button class="refresh-btn" id="refresh-btn">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Refresh list
-        </button>
+        <div class="refresh-row">
+            <button class="refresh-btn" id="refresh-btn">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Refresh list
+            </button>
+            <span class="last-synced" id="last-synced"></span>
+        </div>
+
+        <div class="lib-stats" id="lib-stats" style="display:none;">
+            <div class="lib-stat">
+                <div class="lib-stat-num" id="lib-stat-week">0</div>
+                <div class="lib-stat-label">Added this week</div>
+            </div>
+            <div class="lib-stat">
+                <div class="lib-stat-num" id="lib-stat-storage">–</div>
+                <div class="lib-stat-label">Repo storage used</div>
+                <div class="lib-stat-bar"><div class="lib-stat-bar-fill" id="lib-stat-bar-fill"></div></div>
+            </div>
+        </div>
 
         <div class="list-toolbar">
             <div class="search-input-row">
@@ -724,14 +813,45 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
                 <option value="manual">Manual order</option>
                 <option value="title-asc">Title A–Z</option>
                 <option value="title-desc">Title Z–A</option>
+                <option value="date-new">Newest first</option>
+                <option value="date-old">Oldest first</option>
+                <option value="duration-long">Longest first</option>
+                <option value="duration-short">Shortest first</option>
             </select>
+        </div>
+
+        <div class="bulk-bar" id="bulk-bar">
+            <span class="bulk-bar-label" id="bulk-bar-label">0 selected</span>
+            <div class="bulk-bar-actions">
+                <button class="bulk-bar-btn" id="bulk-clear-btn">Clear</button>
+                <button class="bulk-bar-btn danger" id="bulk-delete-btn">Delete</button>
+            </div>
         </div>
 
         <div class="track-list" id="track-list">
             <p class="track-empty">Connect a token to see your tracks.</p>
         </div>
         <div class="mini-player" id="mini-player" style="display:none;">
-            <audio id="mini-audio" controls></audio>
+            <audio id="mini-audio"></audio>
+            <div class="mp-top">
+                <img id="mp-cover-img" class="mp-cover" style="display:none;" alt="">
+                <div id="mp-cover-fallback" class="mp-cover-fallback"><svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.8"/></svg></div>
+                <div class="mp-info">
+                    <div class="mp-title" id="mp-title">–</div>
+                    <div class="mp-sub" id="mp-sub">0:00 / 0:00</div>
+                </div>
+                <div class="mp-controls">
+                    <button class="mp-btn" id="mp-prev" title="Previous ( , )" aria-label="Previous track"><svg viewBox="0 0 24 24" fill="none"><path d="M6 5v14M18 5 8 12l10 7z" fill="currentColor"/></svg></button>
+                    <button class="mp-btn play-toggle" id="mp-play" title="Play/Pause ( k )" aria-label="Play or pause"><svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7z" fill="currentColor"/></svg></button>
+                    <button class="mp-btn" id="mp-next" title="Next ( . )" aria-label="Next track"><svg viewBox="0 0 24 24" fill="none"><path d="M18 5v14M6 5l10 7-10 7z" fill="currentColor"/></svg></button>
+                    <button class="mp-btn mp-close" id="mp-close" title="Close player" aria-label="Close player"><svg viewBox="0 0 24 24" fill="none"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                </div>
+            </div>
+            <div class="mp-seek-row">
+                <span class="mp-time" id="mp-cur-time">0:00</span>
+                <input type="range" class="mp-seek" id="mp-seek" min="0" max="100" value="0" step="0.1" aria-label="Seek">
+                <span class="mp-time" id="mp-dur-time">0:00</span>
+            </div>
         </div>
     </div>
 
@@ -780,6 +900,21 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
     </div>
 </div>
 
+<!-- tag editor -->
+<div class="overlay-backdrop" id="tag-overlay">
+    <div class="confirm-sheet">
+        <h3 class="confirm-title">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M20.59 13.41 12 22l-9-9V4a1 1 0 0 1 1-1h9l9 9a2 2 0 0 1-1.41 1.41Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="7" cy="7" r="1.4" fill="currentColor"/></svg>
+            Tags for <span id="tag-editor-track-name"></span>
+        </h3>
+        <input type="text" class="tag-editor-input" id="tag-editor-input" placeholder="Type a tag and press Enter…">
+        <div class="tag-editor-chips" id="tag-editor-chips"></div>
+        <div class="confirm-actions">
+            <button class="btn btn-ghost" id="tag-editor-close-btn" style="flex:1;">Done</button>
+        </div>
+    </div>
+</div>
+
 <!-- keyboard shortcuts sheet -->
 <div class="overlay-backdrop" id="shortcuts-overlay">
     <div class="confirm-sheet">
@@ -794,6 +929,9 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
             <div class="kbd-row"><span>Refresh track list</span><span class="keys"><span class="key">R</span></span></div>
             <div class="kbd-row"><span>Toggle theme</span><span class="keys"><span class="key">T</span></span></div>
             <div class="kbd-row"><span>Undo last action</span><span class="keys"><span class="key">Ctrl/⌘</span><span class="key">Z</span></span></div>
+            <div class="kbd-row"><span>Play / pause</span><span class="keys"><span class="key">K</span></span></div>
+            <div class="kbd-row"><span>Previous track</span><span class="keys"><span class="key">,</span></span></div>
+            <div class="kbd-row"><span>Next track</span><span class="keys"><span class="key">.</span></span></div>
             <div class="kbd-row"><span>Close dialogs</span><span class="keys"><span class="key">Esc</span></span></div>
         </div>
         <button class="btn btn-ghost" id="shortcuts-close-btn">Got it</button>
@@ -838,6 +976,8 @@ const rememberToken = document.getElementById('remember-token');
 const connStatus = document.getElementById('conn-status');
 const connDot = document.getElementById('conn-dot');
 const connText = document.getElementById('conn-text');
+const tokenExpiryBanner = document.getElementById('token-expiry-banner');
+const tokenExpiryText = document.getElementById('token-expiry-text');
 const dropzone = document.getElementById('dropzone');
 const fileInput = document.getElementById('file-input');
 const coverInput = document.getElementById('cover-input');
@@ -864,6 +1004,18 @@ const deleteTrackName = document.getElementById('delete-track-name');
 const deleteCancelBtn = document.getElementById('delete-cancel-btn');
 const deleteConfirmBtn = document.getElementById('delete-confirm-btn');
 const deleteConfirmText = document.getElementById('delete-confirm-text');
+
+const bulkBar = document.getElementById('bulk-bar');
+const bulkBarLabel = document.getElementById('bulk-bar-label');
+const bulkClearBtn = document.getElementById('bulk-clear-btn');
+const bulkDeleteBtn = document.getElementById('bulk-delete-btn');
+
+const tagOverlay = document.getElementById('tag-overlay');
+const tagEditorTrackName = document.getElementById('tag-editor-track-name');
+const tagEditorInput = document.getElementById('tag-editor-input');
+const tagEditorChips = document.getElementById('tag-editor-chips');
+const tagEditorCloseBtn = document.getElementById('tag-editor-close-btn');
+
 
 const shortcutsBtn = document.getElementById('shortcuts-btn');
 const shortcutsOverlay = document.getElementById('shortcuts-overlay');
@@ -1054,6 +1206,7 @@ document.addEventListener('keydown', (e) => {
         deleteOverlay.classList.remove('show');
         shortcutsOverlay.classList.remove('show');
         dataOverlay.classList.remove('show');
+        if (tagOverlay.classList.contains('show')) saveTagEditor();
         if (typing) e.target.blur();
         return;
     }
@@ -1070,6 +1223,9 @@ document.addEventListener('keydown', (e) => {
     if (e.key === '/') { e.preventDefault(); searchInput.focus(); return; }
     if (e.key.toLowerCase() === 'r') { loadTrackList(); return; }
     if (e.key.toLowerCase() === 't') { themeToggle.click(); return; }
+    if (e.key.toLowerCase() === 'k' && miniPlayer.style.display !== 'none') { e.preventDefault(); mpPlayBtn.click(); return; }
+    if (e.key === ',' && miniPlayer.style.display !== 'none') { e.preventDefault(); mpPrevBtn.click(); return; }
+    if (e.key === '.' && miniPlayer.style.display !== 'none') { e.preventDefault(); mpNextBtn.click(); return; }
 });
 
 /* ============================================================ */
@@ -1153,6 +1309,7 @@ async function checkToken() {
         if (res.ok) {
             setConnStatus('ok', 'Connected to Twoplay-01');
             if (rememberToken.checked) localStorage.setItem(TOKEN_STORAGE_KEY, token);
+            checkTokenExpiry(res);
             loadTrackList();
         } else if (res.status === 401) {
             setConnStatus('err', 'Invalid token');
@@ -1165,6 +1322,23 @@ async function checkToken() {
         setConnStatus('err', 'Could not reach GitHub');
     }
     updateUploadState();
+}
+
+function checkTokenExpiry(res) {
+    // fine-grained PATs expose this header; classic PATs (or ones set to "no expiration") won't have it
+    const expHeader = res.headers.get('github-authentication-token-expiration');
+    if (!expHeader) { tokenExpiryBanner.classList.remove('show'); return; }
+    const expiry = new Date(expHeader);
+    if (isNaN(expiry.getTime())) { tokenExpiryBanner.classList.remove('show'); return; }
+    const daysLeft = Math.ceil((expiry.getTime() - Date.now()) / 86400000);
+    if (daysLeft <= 7) {
+        tokenExpiryText.textContent = daysLeft <= 0
+            ? 'Your GitHub token has expired — uploads will fail until you generate a new one.'
+            : `Your GitHub token expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — generate a new one soon so uploads don't break.`;
+        tokenExpiryBanner.classList.add('show');
+    } else {
+        tokenExpiryBanner.classList.remove('show');
+    }
 }
 
 function setConnStatus(state, text) {
@@ -1211,20 +1385,92 @@ function addFilesToQueue(files) {
     audioFiles.forEach(file => {
         const safeName = sanitizeFilename(file.name);
         const dup = cachedTracks.some(t => t.file === safeName) || queue.some(q => sanitizeFilename(q.file.name) === safeName);
-        queue.push({
+        const item = {
             id: 'q' + (qidCounter++),
             file,
             title: prettify(file.name),
             coverDataUrl: null,
             status: 'pending',
+            progress: 0,
             dup
-        });
+        };
+        queue.push(item);
+        // try to pull cover art out of the file's ID3 tag; harmless no-op if there isn't one
+        extractId3Cover(file).then(dataUrl => {
+            if (dataUrl && !item.coverDataUrl) { item.coverDataUrl = dataUrl; renderQueue(); }
+        }).catch(() => {});
     });
     renderQueue();
     hideBanners();
     updateUploadState();
     setCatState('idle');
     if (queue.some(q => q.dup)) catSay('some of these look familiar...');
+}
+
+/* ---------------------------------- */
+/* ID3v2 cover art extraction (APIC)   */
+/* ---------------------------------- */
+function extractId3Cover(file) {
+    return new Promise((resolve, reject) => {
+        const headSlice = file.slice(0, 10);
+        const reader = new FileReader();
+        reader.onerror = () => reject();
+        reader.onload = () => {
+            const head = new Uint8Array(reader.result);
+            if (head[0] !== 0x49 || head[1] !== 0x44 || head[2] !== 0x33) { resolve(null); return; } // not "ID3"
+            const size = ((head[6] & 0x7f) << 21) | ((head[7] & 0x7f) << 14) | ((head[8] & 0x7f) << 7) | (head[9] & 0x7f);
+            const version = head[3];
+            const tagReader = new FileReader();
+            tagReader.onerror = () => reject();
+            tagReader.onload = () => {
+                try {
+                    const buf = new Uint8Array(tagReader.result);
+                    const cover = findApicFrame(buf, version);
+                    resolve(cover);
+                } catch (e) { resolve(null); }
+            };
+            tagReader.readAsArrayBuffer(file.slice(10, 10 + size));
+        };
+        reader.readAsArrayBuffer(headSlice);
+    });
+}
+
+function findApicFrame(buf, version) {
+    let pos = 0;
+    while (pos < buf.length - 10) {
+        const frameId = String.fromCharCode(buf[pos], buf[pos + 1], buf[pos + 2], buf[pos + 3]);
+        let frameSize;
+        if (version >= 4) {
+            frameSize = ((buf[pos + 4] & 0x7f) << 21) | ((buf[pos + 5] & 0x7f) << 14) | ((buf[pos + 6] & 0x7f) << 7) | (buf[pos + 7] & 0x7f);
+        } else {
+            frameSize = (buf[pos + 4] << 24) | (buf[pos + 5] << 16) | (buf[pos + 6] << 8) | buf[pos + 7];
+        }
+        if (frameSize <= 0 || pos + 10 + frameSize > buf.length) break;
+        if (frameId === 'APIC') {
+            let p = pos + 10;
+            const textEncoding = buf[p]; p += 1;
+            let mimeEnd = p;
+            while (buf[mimeEnd] !== 0 && mimeEnd < buf.length) mimeEnd++;
+            const mime = String.fromCharCode(...buf.slice(p, mimeEnd));
+            p = mimeEnd + 1;
+            p += 1; // picture type byte
+            // description string, null-terminated (double-null if UTF-16)
+            if (textEncoding === 1 || textEncoding === 2) {
+                while (!(buf[p] === 0 && buf[p + 1] === 0) && p < buf.length) p += 2;
+                p += 2;
+            } else {
+                while (buf[p] !== 0 && p < buf.length) p++;
+                p += 1;
+            }
+            const imgBytes = buf.slice(p, pos + 10 + frameSize);
+            if (!imgBytes.length || !mime.startsWith('image/')) return null;
+            let binary = '';
+            for (let i = 0; i < imgBytes.length; i++) binary += String.fromCharCode(imgBytes[i]);
+            return `data:${mime};base64,${btoa(binary)}`;
+        }
+        pos += 10 + frameSize;
+    }
+    return null;
 }
 
 function renderQueue() {
@@ -1278,6 +1524,15 @@ function renderQueue() {
             (item.status === 'done' ? `<span style="color:var(--good); font-weight:800;">uploaded</span>` : '') +
             (item.status === 'failed' ? `<span style="color:var(--bad); font-weight:800;">failed</span>` : '');
         info.appendChild(meta);
+
+        const itemProgress = document.createElement('div');
+        itemProgress.className = 'queue-item-progress' + (item.status === 'uploading' ? ' show' : '');
+        const itemProgressFill = document.createElement('div');
+        itemProgressFill.className = 'queue-item-progress-fill';
+        itemProgressFill.style.width = `${item.progress || 0}%`;
+        itemProgress.appendChild(itemProgressFill);
+        info.appendChild(itemProgress);
+
 
         const audioUrl = URL.createObjectURL(item.file);
         const previewAudio = document.createElement('audio');
@@ -1409,6 +1664,14 @@ uploadBtn.addEventListener('click', doUpload);
 
 async function doUpload() {
     if (!queue.length || !token) return;
+
+    const dups = queue.filter(q => q.dup);
+    if (dups.length) {
+        const names = dups.map(q => q.title || q.file.name).join(', ');
+        const proceed = confirm(`${dups.length} file${dups.length === 1 ? '' : 's'} will overwrite an existing track with the same name (${names}). Continue?`);
+        if (!proceed) return;
+    }
+
     hideBanners();
     uploadBtn.disabled = true;
     setCatState('uploading');
@@ -1421,15 +1684,20 @@ async function doUpload() {
 
     for (const item of queue) {
         item.status = 'uploading';
+        item.progress = 5;
         renderQueue();
         progressCount.textContent = `${done + 1} / ${total}`;
         try {
             progressLabel.textContent = `Reading ${item.file.name}…`;
             progressFill.style.width = `${((done + 0.15) / total) * 100}%`;
+            item.progress = 20;
+            renderQueue();
             const base64 = await fileToBase64(item.file);
 
             progressLabel.textContent = `Uploading ${item.file.name}…`;
             progressFill.style.width = `${((done + 0.5) / total) * 100}%`;
+            item.progress = 55;
+            renderQueue();
 
             const safeName = sanitizeFilename(item.file.name);
             const targetPath = `${MUSIC_DIR}/${safeName}`;
@@ -1438,14 +1706,18 @@ async function doUpload() {
 
             progressLabel.textContent = 'Updating playlist…';
             progressFill.style.width = `${((done + 0.85) / total) * 100}%`;
+            item.progress = 85;
+            renderQueue();
 
             const finalTitle = item.title.trim() || prettify(item.file.name);
             await updatePlaylist(safeName, finalTitle, item.coverDataUrl);
 
             item.status = 'done';
+            item.progress = 100;
             succeededTitles.push(finalTitle);
         } catch (e) {
             item.status = 'failed';
+            item.progress = 0;
             failedCount++;
         }
         done++;
@@ -1454,6 +1726,7 @@ async function doUpload() {
     }
 
     progressLabel.textContent = 'Done';
+    setLastSynced(new Date());
 
     if (succeededTitles.length) {
         bannerSuccessText.innerHTML = succeededTitles.length === 1
@@ -1496,11 +1769,16 @@ async function writePlaylist(playlist, sha, message) {
     await ghPut(PLAYLIST_PATH, b64, message, sha);
 }
 
-async function updatePlaylist(filename, title, coverDataUrl) {
+async function updatePlaylist(filename, title, coverDataUrl, extra) {
     const { playlist, sha } = await getPlaylist();
+    const prior = playlist.find(entry => (entry.file || entry.name) === filename);
     const next = playlist.filter(entry => (entry.file || entry.name) !== filename);
-    const entry = { file: filename, title };
-    if (coverDataUrl) entry.cover = coverDataUrl;
+    const entry = { file: filename, title, addedAt: (prior && prior.addedAt) || (extra && extra.addedAt) || new Date().toISOString() };
+    const cover = coverDataUrl || (prior && prior.cover);
+    if (cover) entry.cover = cover;
+    if ((prior && prior.tags && prior.tags.length)) entry.tags = prior.tags;
+    if (extra && extra.duration) entry.duration = extra.duration;
+    else if (prior && prior.duration) entry.duration = prior.duration;
     next.push(entry);
     await writePlaylist(next, sha, `Update playlist: add ${filename}`);
 }
@@ -1540,6 +1818,7 @@ async function reorderPlaylist(newOrderFiles) {
 refreshBtn.addEventListener('click', loadTrackList);
 
 let cachedTracks = [];
+let selectedFiles = new Set();
 let pendingDeleteTrack = null;
 
 async function loadTrackList() {
@@ -1550,10 +1829,70 @@ async function loadTrackList() {
         const { playlist } = await getPlaylist();
         cachedTracks = playlist;
         renderTrackList();
+        setLastSynced(new Date());
+        updateLibStats();
     } catch (e) {
         trackList.innerHTML = '<p class="track-empty">Couldn\'t load the track list.</p>';
     } finally {
         refreshBtn.classList.remove('spinning');
+    }
+}
+
+/* ---------------------------------- */
+/* last synced indicator               */
+/* ---------------------------------- */
+const lastSyncedEl = document.getElementById('last-synced');
+let lastSyncedAt = null;
+let lastSyncedTimer = null;
+
+function setLastSynced(date) {
+    lastSyncedAt = date;
+    renderLastSynced();
+    clearInterval(lastSyncedTimer);
+    lastSyncedTimer = setInterval(renderLastSynced, 30000);
+}
+
+function renderLastSynced() {
+    if (!lastSyncedAt || !lastSyncedEl) return;
+    const secs = Math.floor((Date.now() - lastSyncedAt.getTime()) / 1000);
+    let text;
+    if (secs < 10) text = 'synced just now';
+    else if (secs < 60) text = `synced ${secs}s ago`;
+    else if (secs < 3600) text = `synced ${Math.floor(secs / 60)}m ago`;
+    else text = `synced ${Math.floor(secs / 3600)}h ago`;
+    lastSyncedEl.textContent = text;
+}
+
+/* ---------------------------------- */
+/* library stats (real numbers)        */
+/* ---------------------------------- */
+const libStats = document.getElementById('lib-stats');
+const libStatWeek = document.getElementById('lib-stat-week');
+const libStatStorage = document.getElementById('lib-stat-storage');
+const libStatBarFill = document.getElementById('lib-stat-bar-fill');
+const REPO_SOFT_LIMIT_MB = 1024; // GitHub recommends keeping repos under ~1GB
+
+async function updateLibStats() {
+    if (!cachedTracks.length) { libStats.style.display = 'none'; return; }
+    libStats.style.display = 'grid';
+
+    const weekAgo = Date.now() - 7 * 86400000;
+    const addedThisWeek = cachedTracks.filter(t => t.addedAt && new Date(t.addedAt).getTime() >= weekAgo).length;
+    libStatWeek.textContent = String(addedThisWeek);
+
+    try {
+        const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`, {
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        const sizeMb = (data.size || 0) / 1024; // GitHub reports repo size in KB
+        const pct = Math.min(100, (sizeMb / REPO_SOFT_LIMIT_MB) * 100);
+        libStatStorage.textContent = sizeMb < 1 ? `${Math.round(sizeMb * 1024)} KB` : `${sizeMb.toFixed(1)} MB`;
+        libStatBarFill.style.width = `${pct}%`;
+        libStatBarFill.className = 'lib-stat-bar-fill' + (pct > 90 ? ' danger' : pct > 70 ? ' warn' : '');
+    } catch (e) {
+        libStatStorage.textContent = '–';
     }
 }
 
@@ -1572,10 +1911,14 @@ sortSelect.addEventListener('change', renderTrackList);
 function getVisibleTracks() {
     const q = searchInput.value.trim().toLowerCase();
     let list = cachedTracks.slice();
-    if (q) list = list.filter(t => (t.title || t.file).toLowerCase().includes(q));
+    if (q) list = list.filter(t => (t.title || t.file).toLowerCase().includes(q) || (t.tags || []).some(tag => tag.toLowerCase().includes(q)));
     const sortMode = sortSelect.value;
     if (sortMode === 'title-asc') list.sort((a, b) => (a.title || a.file).localeCompare(b.title || b.file));
     else if (sortMode === 'title-desc') list.sort((a, b) => (b.title || b.file).localeCompare(a.title || a.file));
+    else if (sortMode === 'date-new') list.sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
+    else if (sortMode === 'date-old') list.sort((a, b) => new Date(a.addedAt || 0) - new Date(b.addedAt || 0));
+    else if (sortMode === 'duration-long') list.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+    else if (sortMode === 'duration-short') list.sort((a, b) => (a.duration || 0) - (b.duration || 0));
     return list;
 }
 
@@ -1658,13 +2001,62 @@ function renderTrackList() {
             row.appendChild(musicIcon.firstChild);
         }
 
+        const nameWrap = document.createElement('div');
+        nameWrap.className = 'track-row-namewrap';
+
         const name = document.createElement('span');
         name.className = 'track-row-name';
         name.innerHTML = highlightMatch(t.title || t.file, query);
-        row.appendChild(name);
+        nameWrap.appendChild(name);
+
+        const meta = document.createElement('div');
+        meta.className = 'track-row-meta';
+        const durSpan = document.createElement('span');
+        durSpan.className = 'track-row-duration';
+        durSpan.dataset.file = t.file;
+        durSpan.textContent = t.duration ? fmtTime(t.duration) : '';
+        meta.appendChild(durSpan);
+        (t.tags || []).forEach(tag => {
+            const chip = document.createElement('span');
+            chip.className = 'tag-chip';
+            chip.textContent = tag;
+            meta.appendChild(chip);
+        });
+        if (meta.children.length) nameWrap.appendChild(meta);
+        row.appendChild(nameWrap);
+
+        if (!t.duration) probeDuration(t);
 
         const actions = document.createElement('div');
         actions.className = 'track-actions';
+
+        const selectBtn = document.createElement('input');
+        selectBtn.type = 'checkbox';
+        selectBtn.className = 'track-select-box';
+        selectBtn.checked = selectedFiles.has(t.file);
+        selectBtn.setAttribute('aria-label', 'Select track');
+        selectBtn.addEventListener('click', (e) => e.stopPropagation());
+        selectBtn.addEventListener('change', () => {
+            if (selectBtn.checked) selectedFiles.add(t.file); else selectedFiles.delete(t.file);
+            updateBulkBar();
+        });
+        actions.appendChild(selectBtn);
+
+        const tagBtn = document.createElement('button');
+        tagBtn.className = 'track-action-btn';
+        tagBtn.title = 'Tags';
+        tagBtn.setAttribute('aria-label', 'Edit tags');
+        tagBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M20.59 13.41 12 22l-9-9V4a1 1 0 0 1 1-1h9l9 9a2 2 0 0 1-1.41 1.41Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="7" cy="7" r="1.4" fill="currentColor"/></svg>';
+        tagBtn.addEventListener('click', () => openTagEditor(t));
+        actions.appendChild(tagBtn);
+
+        const shareBtn = document.createElement('button');
+        shareBtn.className = 'track-action-btn';
+        shareBtn.title = 'Copy link';
+        shareBtn.setAttribute('aria-label', 'Copy shareable link');
+        shareBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M10 13a5 5 0 0 0 7.07 0l2.5-2.5a5 5 0 0 0-7.07-7.07L11 4.88" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.07 0l-2.5 2.5a5 5 0 0 0 7.07 7.07L12.9 19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>';
+        shareBtn.addEventListener('click', () => copyTrackLink(t));
+        actions.appendChild(shareBtn);
 
         const playBtn = document.createElement('button');
         playBtn.className = 'track-action-btn';
@@ -1693,16 +2085,252 @@ function renderTrackList() {
         row.appendChild(actions);
         trackList.appendChild(row);
     });
+    updateBulkBar();
 }
 
-function previewTrack(t, btn) {
+/* ---------------------------------- */
+/* bulk select & delete                */
+/* ---------------------------------- */
+function updateBulkBar() {
+    // drop selections for tracks no longer in the list (e.g. after delete/refresh)
+    const validFiles = new Set(cachedTracks.map(t => t.file));
+    selectedFiles.forEach(f => { if (!validFiles.has(f)) selectedFiles.delete(f); });
+    const n = selectedFiles.size;
+    bulkBar.classList.toggle('show', n > 0);
+    bulkBarLabel.textContent = `${n} selected`;
+}
+
+bulkClearBtn.addEventListener('click', () => {
+    selectedFiles.clear();
+    renderTrackList();
+});
+
+bulkDeleteBtn.addEventListener('click', async () => {
+    if (!selectedFiles.size) return;
+    const files = Array.from(selectedFiles);
+    const targets = cachedTracks.filter(t => files.includes(t.file));
+    if (!confirm(`Remove ${targets.length} track${targets.length === 1 ? '' : 's'}? This can't be bulk-undone.`)) return;
+    bulkDeleteBtn.disabled = true;
+    bulkDeleteBtn.textContent = 'Removing…';
+    let failed = 0;
+    for (const t of targets) {
+        try { await removeTrack(t); } catch (e) { failed++; }
+    }
+    bulkDeleteBtn.disabled = false;
+    bulkDeleteBtn.textContent = 'Delete';
+    selectedFiles.clear();
+    showToast(failed ? `Removed some tracks — ${failed} failed.` : `Removed ${targets.length} track${targets.length === 1 ? '' : 's'}.`);
+    loadTrackList();
+    setCatState(failed ? 'error' : 'idle');
+});
+
+/* ---------------------------------- */
+/* duration probing (lazy, client-side)*/
+/* ---------------------------------- */
+const durationCache = {};
+function probeDuration(t) {
+    if (durationCache[t.file] === 'pending') return;
+    durationCache[t.file] = 'pending';
+    const probe = new Audio();
+    probe.preload = 'metadata';
+    probe.src = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${MUSIC_DIR}/${t.file}`;
+    probe.addEventListener('loadedmetadata', async () => {
+        const dur = probe.duration;
+        durationCache[t.file] = dur;
+        const cached = cachedTracks.find(x => x.file === t.file);
+        if (cached) cached.duration = dur;
+        const el = document.querySelector(`.track-row-duration[data-file="${CSS.escape(t.file)}"]`);
+        if (el && isFinite(dur)) el.textContent = fmtTime(dur);
+        // persist quietly so we don't re-probe every load; ignore failures (e.g. stale token)
+        try { await updatePlaylist(t.file, t.title || prettify(t.file), null, { duration: dur }); } catch (_) {}
+    });
+    probe.addEventListener('error', () => { durationCache[t.file] = null; });
+}
+
+/* ---------------------------------- */
+/* shareable link                      */
+/* ---------------------------------- */
+function copyTrackLink(t) {
+    const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${MUSIC_DIR}/${t.file}`;
+    navigator.clipboard.writeText(rawUrl).then(() => {
+        showToast('Link copied to clipboard.');
+    }).catch(() => {
+        showToast('Could not copy — your browser blocked clipboard access.');
+    });
+}
+
+/* ---------------------------------- */
+/* tag editor                          */
+/* ---------------------------------- */
+let tagEditorTrack = null;
+let tagEditorDraft = [];
+
+function openTagEditor(t) {
+    tagEditorTrack = t;
+    tagEditorDraft = (t.tags || []).slice();
+    tagEditorTrackName.textContent = t.title || t.file;
+    tagEditorInput.value = '';
+    renderTagChips();
+    tagOverlay.classList.add('show');
+    setTimeout(() => tagEditorInput.focus(), 50);
+}
+
+function renderTagChips() {
+    tagEditorChips.innerHTML = '';
+    tagEditorDraft.forEach((tag, i) => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-editor-chip';
+        const label = document.createElement('span');
+        label.textContent = tag;
+        chip.appendChild(label);
+        const rm = document.createElement('button');
+        rm.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
+        rm.setAttribute('aria-label', `Remove tag ${tag}`);
+        rm.addEventListener('click', () => { tagEditorDraft.splice(i, 1); renderTagChips(); });
+        chip.appendChild(rm);
+        tagEditorChips.appendChild(chip);
+    });
+}
+
+tagEditorInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const val = tagEditorInput.value.trim().toLowerCase();
+        if (val && !tagEditorDraft.includes(val)) {
+            tagEditorDraft.push(val);
+            renderTagChips();
+        }
+        tagEditorInput.value = '';
+    }
+});
+
+async function saveTagEditor() {
+    if (!tagEditorTrack) return;
+    const t = tagEditorTrack;
+    const changed = JSON.stringify(t.tags || []) !== JSON.stringify(tagEditorDraft);
+    if (changed) {
+        try {
+            const { playlist, sha } = await getPlaylist();
+            const next = playlist.map(entry => {
+                const f = entry.file || entry.name;
+                if (f !== t.file) return entry;
+                const copy = { ...entry };
+                if (tagEditorDraft.length) copy.tags = tagEditorDraft.slice();
+                else delete copy.tags;
+                return copy;
+            });
+            await writePlaylist(next, sha, `Update playlist: tags for ${t.file}`);
+            loadTrackList();
+        } catch (e) {
+            showToast(e.message || 'Could not save tags.');
+        }
+    }
+    tagOverlay.classList.remove('show');
+    tagEditorTrack = null;
+}
+
+tagEditorCloseBtn.addEventListener('click', saveTagEditor);
+tagOverlay.addEventListener('click', (e) => { if (e.target === tagOverlay) saveTagEditor(); });
+
+/* ---------------------------------- */
+/* mini player (queue-aware)           */
+/* ---------------------------------- */
+const mpTitle = document.getElementById('mp-title');
+const mpSub = document.getElementById('mp-sub');
+const mpCoverImg = document.getElementById('mp-cover-img');
+const mpCoverFallback = document.getElementById('mp-cover-fallback');
+const mpPlayBtn = document.getElementById('mp-play');
+const mpPrevBtn = document.getElementById('mp-prev');
+const mpNextBtn = document.getElementById('mp-next');
+const mpCloseBtn = document.getElementById('mp-close');
+const mpSeek = document.getElementById('mp-seek');
+const mpCurTime = document.getElementById('mp-cur-time');
+const mpDurTime = document.getElementById('mp-dur-time');
+
+let playerQueue = [];
+let playerIndex = -1;
+let seeking = false;
+
+function fmtTime(s) {
+    if (!isFinite(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+function playIconSvg() { return '<path d="M8 5v14l11-7z" fill="currentColor"/>'; }
+function pauseIconSvg() { return '<path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor"/>'; }
+
+function setActiveRow(file) {
+    document.querySelectorAll('.track-row').forEach(r => r.classList.toggle('now-playing', r.dataset.file === file));
     document.querySelectorAll('.track-action-btn.active').forEach(b => b.classList.remove('active'));
+}
+
+function loadPlayerTrack(idx, autoplay) {
+    if (idx < 0 || idx >= playerQueue.length) return;
+    playerIndex = idx;
+    const t = playerQueue[idx];
     const rawUrl = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${MUSIC_DIR}/${t.file}`;
     miniAudio.src = rawUrl;
     miniPlayer.style.display = 'block';
-    btn.classList.add('active');
-    miniAudio.play().catch(() => {});
+    mpTitle.textContent = t.title || t.file;
+    mpSub.textContent = `${idx + 1} of ${playerQueue.length}`;
+    if (t.cover) {
+        mpCoverImg.src = t.cover;
+        mpCoverImg.style.display = 'block';
+        mpCoverFallback.style.display = 'none';
+    } else {
+        mpCoverImg.style.display = 'none';
+        mpCoverFallback.style.display = 'flex';
+    }
+    setActiveRow(t.file);
+    mpPrevBtn.disabled = idx <= 0;
+    mpNextBtn.disabled = idx >= playerQueue.length - 1;
+    if (autoplay) miniAudio.play().catch(() => {});
 }
+
+function previewTrack(t, btn) {
+    // build the queue from whatever's currently visible so next/prev walks the list on screen
+    playerQueue = getVisibleTracks().map(entry => typeof entry === 'string' ? { file: entry, title: prettify(entry) } : entry);
+    const idx = playerQueue.findIndex(x => x.file === t.file);
+    loadPlayerTrack(idx >= 0 ? idx : 0, true);
+    if (btn) btn.classList.add('active');
+}
+
+mpPlayBtn.addEventListener('click', () => {
+    if (miniAudio.paused) miniAudio.play().catch(() => {});
+    else miniAudio.pause();
+});
+miniAudio.addEventListener('play', () => { mpPlayBtn.innerHTML = pauseIconSvg(); });
+miniAudio.addEventListener('pause', () => { mpPlayBtn.innerHTML = playIconSvg(); });
+
+mpPrevBtn.addEventListener('click', () => loadPlayerTrack(playerIndex - 1, true));
+mpNextBtn.addEventListener('click', () => loadPlayerTrack(playerIndex + 1, true));
+miniAudio.addEventListener('ended', () => {
+    if (playerIndex < playerQueue.length - 1) loadPlayerTrack(playerIndex + 1, true);
+});
+
+mpCloseBtn.addEventListener('click', () => {
+    miniAudio.pause();
+    miniAudio.src = '';
+    miniPlayer.style.display = 'none';
+    document.querySelectorAll('.track-row').forEach(r => r.classList.remove('now-playing'));
+    document.querySelectorAll('.track-action-btn.active').forEach(b => b.classList.remove('active'));
+    playerQueue = [];
+    playerIndex = -1;
+});
+
+miniAudio.addEventListener('loadedmetadata', () => {
+    mpSeek.max = miniAudio.duration || 0;
+    mpDurTime.textContent = fmtTime(miniAudio.duration);
+});
+miniAudio.addEventListener('timeupdate', () => {
+    if (seeking) return;
+    mpSeek.value = miniAudio.currentTime;
+    mpCurTime.textContent = fmtTime(miniAudio.currentTime);
+});
+mpSeek.addEventListener('input', () => { seeking = true; mpCurTime.textContent = fmtTime(Number(mpSeek.value)); });
+mpSeek.addEventListener('change', () => { miniAudio.currentTime = Number(mpSeek.value); seeking = false; });
 
 function startRename(row, track) {
     const nameEl = row.querySelector('.track-row-name');
