@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Twoplay · Music Uploader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --surface: #FFFFFF;
+    --surface-2: #FFF1DC;
+    --surface-3: #FFE6C4;
+    --border: rgba(43,36,64,0.10);
+    --border-soft: rgba(43,36,64,0.06);
+    --text: #2B2440;
+    --text-dim: #6B6180;
+    --text-faint: #9C93AC;
+
+    --accent: #FF6FA5;
+    --accent-dim: rgba(255,111,165,0.16);
+
+    --good: #4CAF7D;
+    --good-dim: rgba(76,175,125,0.14);
+    --bad: #E85D5D;
+    --bad-dim: rgba(232,93,93,0.14);
+
+    --blob-lg: 32px 24px 36px 20px;
+    --blob-md: 22px 16px 24px 14px;
+    --blob-sm: 14px 10px 16px 9px;
+
+    --shadow-pop: 4px 5px 0 var(--accent);
+    --shadow-soft: 0 6px 18px rgba(43,36,64,0.08);
+
+    --font-display: 'Baloo 2', 'Fredoka', 'Arial Rounded MT Bold', sans-serif;
+    --font-body: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, monospace;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+    font-family: var(--font-body);
+    background: var(--surface-2);
+    color: var(--text);
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; touch-action: manipulation; }
+input, select { font-family: inherit; }
+::selection { background: var(--accent-dim); color: var(--text); }
+
+/* ambient decoration, quieter than the main site */
+.ambient { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.blob { position: absolute; border-radius: var(--blob-lg); opacity: 0.5; filter: blur(0px); }
+.b1 { top: -60px; right: -50px; width: 220px; height: 220px; background: var(--surface-3); transform: rotate(-10deg); }
+.b2 { bottom: -80px; left: -60px; width: 260px; height: 260px; background: var(--accent-dim); transform: rotate(8deg); }
+.note { position: absolute; font-family: var(--font-display); font-weight: 700; color: var(--accent); opacity: 0.10; }
+.n1 { top: 12%; left: 6%; font-size: 34px; transform: rotate(-8deg); }
+.n2 { top: 68%; right: 8%; font-size: 26px; transform: rotate(10deg); }
+.n3 { top: 40%; right: 20%; font-size: 20px; transform: rotate(-4deg); }
+
+.wrap {
+    position: relative; z-index: 1;
+    max-width: 480px; margin: 0 auto;
+    padding: 28px 18px 60px;
+    min-height: 100vh;
+}
+
+/* header */
+.brand { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.brand-mark { width: 36px; height: 36px; background: var(--accent); border-radius: var(--blob-sm); box-shadow: var(--shadow-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.brand-mark svg { width: 20px; height: 20px; color: #fff; }
+.brand .word { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.brand .word em { font-style: normal; color: var(--accent); }
+.tagline { font-size: 13px; color: var(--text-dim); margin: 6px 0 26px; font-weight: 600; }
+
+/* card */
+.card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--blob-lg);
+    box-shadow: var(--shadow-soft);
+    padding: 22px 20px;
+    margin-bottom: 18px;
+}
+.card-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
+.card-title svg { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
+.card-sub { font-size: 12.5px; color: var(--text-dim); margin: 0 0 16px; line-height: 1.5; }
+
+.field-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); margin-bottom: 8px; display: block; }
+
+.token-input-row { position: relative; margin-bottom: 6px; }
+.token-input {
+    width: 100%; padding: 12px 42px 12px 14px; border: 2px solid var(--border); background: var(--surface-2);
+    color: var(--text); border-radius: var(--blob-sm); font-size: 14px; font-family: var(--font-mono);
+}
+.token-input:focus { outline: none; border-color: var(--accent); }
+.token-input::placeholder { color: var(--text-faint); font-family: var(--font-body); }
+.token-toggle { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); border-radius: 8px; }
+.token-toggle:hover { background: var(--surface-3); color: var(--text-dim); }
+.token-toggle svg { width: 18px; height: 18px; }
+
+.token-hint { font-size: 11.5px; color: var(--text-faint); margin: 8px 0 0; line-height: 1.5; }
+.token-hint a { color: var(--accent); font-weight: 700; text-decoration: none; }
+
+.status-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 12.5px; font-weight: 700; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex-shrink: 0; }
+.status-dot.ok { background: var(--good); }
+.status-dot.err { background: var(--bad); }
+.status-row.ok { color: var(--good); }
+.status-row.err { color: var(--bad); }
+.status-row.idle { color: var(--text-faint); }
+
+/* dropzone */
+.dropzone {
+    border: 2.5px dashed var(--border);
+    border-radius: var(--blob-md);
+    background: var(--surface-2);
+    padding: 28px 16px;
+    text-align: center;
+    transition: border-color 0.15s, background 0.15s;
+    cursor: pointer;
+}
+.dropzone.drag { border-color: var(--accent); background: var(--accent-dim); }
+.dropzone.has-file { border-style: solid; border-color: var(--accent); background: var(--accent-dim); }
+.dropzone svg { width: 30px; height: 30px; color: var(--accent); margin-bottom: 10px; }
+.dropzone-text { font-weight: 800; font-size: 14px; margin-bottom: 2px; }
+.dropzone-sub { font-size: 12px; color: var(--text-dim); }
+#file-input { display: none; }
+
+.file-preview { display: none; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px; background: var(--surface-2); border: 2px solid var(--border-soft); border-radius: var(--blob-sm); }
+.file-preview.show { display: flex; }
+.file-preview svg { width: 20px; height: 20px; color: var(--accent); flex-shrink: 0; }
+.file-preview-info { flex: 1; min-width: 0; }
+.file-preview-name { font-weight: 700; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-preview-size { font-size: 11.5px; color: var(--text-faint); }
+.file-preview-remove { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); flex-shrink: 0; }
+.file-preview-remove:hover { background: var(--surface-3); color: var(--bad); }
+.file-preview-remove svg { width: 16px; height: 16px; }
+
+/* track title input */
+.name-input {
+    width: 100%; padding: 12px 14px; border: 2px solid var(--border); background: var(--surface-2);
+    color: var(--text); border-radius: var(--blob-sm); font-size: 14px; margin-top: 14px;
+}
+.name-input:focus { outline: none; border-color: var(--accent); }
+.name-input::placeholder { color: var(--text-faint); }
+
+/* button */
+.btn {
+    width: 100%; padding: 14px 0; border-radius: var(--blob-sm); font-size: 14.5px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 16px;
+    transition: transform 0.08s, box-shadow 0.08s, opacity 0.15s;
+}
+.btn:active:not(:disabled) { transform: translateY(2px); }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 0 #D14E82; }
+.btn-primary:active:not(:disabled) { box-shadow: 0 2px 0 #D14E82; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn svg { width: 17px; height: 17px; }
+.spinner { width: 17px; height: 17px; border: 2.5px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* progress */
+.progress-wrap { margin-top: 14px; display: none; }
+.progress-wrap.show { display: block; }
+.progress-track { height: 8px; background: var(--surface-2); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-soft); }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 6px; width: 0%; transition: width 0.2s ease; }
+.progress-label { font-size: 11.5px; color: var(--text-dim); margin-top: 6px; font-weight: 700; }
+
+/* result banners */
+.banner { display: none; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--blob-sm); font-size: 13px; font-weight: 700; margin-top: 14px; line-height: 1.5; }
+.banner.show { display: flex; }
+.banner.success { background: var(--good-dim); color: #2A6B4B; }
+.banner.error { background: var(--bad-dim); color: #A83C3C; }
+.banner svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.banner a { color: inherit; text-decoration: underline; }
+
+/* track list */
+.track-list { display: flex; flex-direction: column; gap: 8px; }
+.track-row { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: var(--blob-sm); background: var(--surface-2); border: 2px solid var(--border-soft); }
+.track-row svg { width: 16px; height: 16px; color: var(--accent); flex-shrink: 0; }
+.track-row-name { flex: 1; font-weight: 700; font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-empty { font-size: 12.5px; color: var(--text-faint); padding: 6px 2px; text-align: center; }
+.refresh-btn { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--accent); margin-bottom: 12px; }
+.refresh-btn svg { width: 14px; height: 14px; }
+.refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
+
+.footnote { text-align: center; font-size: 11.5px; color: var(--text-faint); margin-top: 20px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="ambient">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="note n1">♪</div>
+    <div class="note n2">♫</div>
+    <div class="note n3">♪</div>
+</div>
+
+<div class="wrap">
+
+    <div class="brand">
+        <div class="brand-mark">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" fill="currentColor"/><circle cx="17.5" cy="16" r="2.5" fill="currentColor"/></svg>
+        </div>
+        <div class="word">two<em>play</em></div>
+    </div>
+    <p class="tagline">Cozy music uploader — sends tracks straight to your repo.</p>
+
+    <!-- CONNECTION CARD -->
+    <div class="card">
+        <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 12a3 3 0 106 0 3 3 0 00-6 0z" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            GitHub access
+        </h2>
+        <p class="card-sub">Paste a personal access token with <strong>repo</strong> permission. It's only used from your browser to talk to GitHub directly — nothing is stored on a server.</p>
+
+        <span class="field-label">Access token</span>
+        <div class="token-input-row">
+            <input type="password" id="token-input" class="token-input" placeholder="ghp_••••••••••••••••••••" autocomplete="off" spellcheck="false">
+            <button class="token-toggle" id="token-toggle" title="Show token" aria-label="Show token">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg>
+            </button>
+        </div>
+        <p class="token-hint">Create one at <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> → Generate new token (classic) → check the <strong>repo</strong> box.</p>
+
+        <div class="status-row idle" id="conn-status">
+            <span class="status-dot" id="conn-dot"></span>
+            <span id="conn-text">Not connected yet</span>
+        </div>
+    </div>
+
+    <!-- UPLOAD CARD -->
+    <div class="card">
+        <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Upload a track
+        </h2>
+        <p class="card-sub">MP3 works everywhere. Files land in the <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">music/</code> folder and <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">playlist.json</code> updates itself.</p>
+
+        <div class="dropzone" id="dropzone">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="dropzone-text">Tap to choose a file</div>
+            <div class="dropzone-sub">or drop an audio file here</div>
+        </div>
+        <input type="file" id="file-input" accept="audio/*,.mp3,.opus,.wav,.m4a,.ogg">
+
+        <div class="file-preview" id="file-preview">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg>
+            <div class="file-preview-info">
+                <div class="file-preview-name" id="preview-name"></div>
+                <div class="file-preview-size" id="preview-size"></div>
+            </div>
+            <button class="file-preview-remove" id="preview-remove" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+
+        <input type="text" id="title-input" class="name-input" placeholder="Track title (optional — shown in the picker)">
+
+        <button class="btn btn-primary" id="upload-btn" disabled>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="upload-btn-text">Connect a token first</span>
+        </button>
+
+        <div class="progress-wrap" id="progress-wrap">
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="progress-label" id="progress-label">Uploading…</div>
+        </div>
+
+        <div class="banner success" id="banner-success">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="banner-success-text"></span>
+        </div>
+        <div class="banner error" id="banner-error">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span id="banner-error-text"></span>
+        </div>
+    </div>
+
+    <!-- CURRENT TRACKS CARD -->
+    <div class="card">
+        <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            On the site right now
+        </h2>
+        <button class="refresh-btn" id="refresh-btn">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Refresh list
+        </button>
+        <div class="track-list" id="track-list">
+            <p class="track-empty">Connect a token to see your tracks.</p>
+        </div>
+    </div>
+
+    <p class="footnote">Uploads go to<br><strong>Bhavishyadalal/Twoplay-01 → music/</strong></p>
+
+</div>
+
+<script>
+const OWNER = 'Bhavishyadalal';
+const REPO = 'Twoplay-01';
+const BRANCH = 'main';
+const MUSIC_DIR = 'music';
+const PLAYLIST_PATH = `${MUSIC_DIR}/playlist.json`;
+
+let token = '';
+let selectedFile = null;
+
+const tokenInput = document.getElementById('token-input');
+const tokenToggle = document.getElementById('token-toggle');
+const connStatus = document.getElementById('conn-status');
+const connDot = document.getElementById('conn-dot');
+const connText = document.getElementById('conn-text');
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+const filePreview = document.getElementById('file-preview');
+const previewName = document.getElementById('preview-name');
+const previewSize = document.getElementById('preview-size');
+const previewRemove = document.getElementById('preview-remove');
+const titleInput = document.getElementById('title-input');
+const uploadBtn = document.getElementById('upload-btn');
+const uploadBtnText = document.getElementById('upload-btn-text');
+const progressWrap = document.getElementById('progress-wrap');
+const progressFill = document.getElementById('progress-fill');
+const progressLabel = document.getElementById('progress-label');
+const bannerSuccess = document.getElementById('banner-success');
+const bannerSuccessText = document.getElementById('banner-success-text');
+const bannerError = document.getElementById('banner-error');
+const bannerErrorText = document.getElementById('banner-error-text');
+const trackList = document.getElementById('track-list');
+const refreshBtn = document.getElementById('refresh-btn');
+
+// ---- token show/hide ----
+tokenToggle.addEventListener('click', () => {
+    tokenInput.type = tokenInput.type === 'password' ? 'text' : 'password';
+});
+
+// ---- token connect (debounced check) ----
+let tokenTimer = null;
+tokenInput.addEventListener('input', () => {
+    clearTimeout(tokenTimer);
+    token = tokenInput.value.trim();
+    setConnStatus('idle', 'Checking…');
+    if (!token) { setConnStatus('idle', 'Not connected yet'); updateUploadState(); return; }
+    tokenTimer = setTimeout(checkToken, 500);
+});
+
+async function checkToken() {
+    try {
+        const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}`, {
+            headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+        });
+        if (res.ok) {
+            setConnStatus('ok', 'Connected to Twoplay-01');
+            loadTrackList();
+        } else if (res.status === 401) {
+            setConnStatus('err', 'Invalid token');
+        } else if (res.status === 404) {
+            setConnStatus('err', "Token can't see this repo");
+        } else {
+            setConnStatus('err', `GitHub error (${res.status})`);
+        }
+    } catch (e) {
+        setConnStatus('err', 'Could not reach GitHub');
+    }
+    updateUploadState();
+}
+
+function setConnStatus(state, text) {
+    connStatus.className = `status-row ${state}`;
+    connDot.className = `status-dot ${state === 'ok' ? 'ok' : state === 'err' ? 'err' : ''}`;
+    connText.textContent = text;
+}
+
+function updateUploadState() {
+    const ready = token && connStatus.classList.contains('ok') && selectedFile;
+    uploadBtn.disabled = !ready;
+    if (!token || !connStatus.classList.contains('ok')) {
+        uploadBtnText.textContent = 'Connect a token first';
+    } else if (!selectedFile) {
+        uploadBtnText.textContent = 'Choose a file first';
+    } else {
+        uploadBtnText.textContent = 'Upload to site';
+    }
+}
+
+// ---- file selection ----
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+    if (fileInput.files.length) handleFile(fileInput.files[0]);
+});
+previewRemove.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectedFile = null;
+    fileInput.value = '';
+    filePreview.classList.remove('show');
+    dropzone.classList.remove('has-file');
+    updateUploadState();
+});
+
+function handleFile(file) {
+    selectedFile = file;
+    previewName.textContent = file.name;
+    previewSize.textContent = formatBytes(file.size);
+    filePreview.classList.add('show');
+    dropzone.classList.add('has-file');
+    if (!titleInput.value) titleInput.value = prettify(file.name);
+    hideBanners();
+    updateUploadState();
+}
+
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function prettify(filename) {
+    return filename.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function sanitizeFilename(name) {
+    return name.trim().toLowerCase().replace(/[^a-z0-9.]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+}
+
+function hideBanners() {
+    bannerSuccess.classList.remove('show');
+    bannerError.classList.remove('show');
+}
+
+// ---- GitHub API helpers ----
+async function ghGet(path) {
+    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GitHub GET failed (${res.status})`);
+    return res.json();
+}
+
+async function ghPut(path, base64Content, message, sha) {
+    const body = { message, content: base64Content, branch: BRANCH };
+    if (sha) body.sha = sha;
+    const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || `GitHub PUT failed (${res.status})`);
+    }
+    return res.json();
+}
+
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = () => reject(new Error('Could not read the file'));
+        reader.readAsDataURL(file);
+    });
+}
+
+// ---- upload flow ----
+uploadBtn.addEventListener('click', doUpload);
+
+async function doUpload() {
+    if (!selectedFile || !token) return;
+    hideBanners();
+    uploadBtn.disabled = true;
+    progressWrap.classList.add('show');
+    progressFill.style.width = '15%';
+    progressLabel.textContent = 'Reading file…';
+
+    try {
+        const base64 = await fileToBase64(selectedFile);
+        progressFill.style.width = '40%';
+        progressLabel.textContent = 'Uploading to GitHub…';
+
+        const safeName = sanitizeFilename(selectedFile.name);
+        const targetPath = `${MUSIC_DIR}/${safeName}`;
+
+        // check if a track with this filename already exists (to send its sha, avoids overwrite errors)
+        const existing = await ghGet(targetPath);
+        await ghPut(targetPath, base64, `Add music track: ${safeName}`, existing ? existing.sha : undefined);
+
+        progressFill.style.width = '70%';
+        progressLabel.textContent = 'Updating playlist…';
+
+        await updatePlaylist(safeName, titleInput.value.trim() || prettify(selectedFile.name));
+
+        progressFill.style.width = '100%';
+        progressLabel.textContent = 'Done';
+
+        bannerSuccessText.innerHTML = `<strong>${escapeHtml(titleInput.value.trim() || prettify(selectedFile.name))}</strong> is live in the music folder. It'll show up in the site's music picker next time it's opened.`;
+        bannerSuccess.classList.add('show');
+
+        // reset form
+        selectedFile = null;
+        fileInput.value = '';
+        titleInput.value = '';
+        filePreview.classList.remove('show');
+        dropzone.classList.remove('has-file');
+        loadTrackList();
+    } catch (e) {
+        bannerErrorText.textContent = e.message || 'Something went wrong during upload.';
+        bannerError.classList.add('show');
+    } finally {
+        setTimeout(() => { progressWrap.classList.remove('show'); progressFill.style.width = '0%'; }, 600);
+        updateUploadState();
+    }
+}
+
+async function updatePlaylist(filename, title) {
+    let playlist = [];
+    let sha;
+    try {
+        const existing = await ghGet(PLAYLIST_PATH);
+        if (existing) {
+            sha = existing.sha;
+            const decoded = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
+            const parsed = JSON.parse(decoded);
+            if (Array.isArray(parsed)) playlist = parsed;
+        }
+    } catch (e) { playlist = []; }
+
+    // normalize entries to {file, title}, dedupe by file
+    playlist = playlist.map(entry => typeof entry === 'string' ? { file: entry, title: prettify(entry) } : entry);
+    playlist = playlist.filter(entry => (entry.file || entry.name) !== filename);
+    playlist.push({ file: filename, title });
+
+    const json = JSON.stringify(playlist, null, 2);
+    const b64 = btoa(unescape(encodeURIComponent(json)));
+    await ghPut(PLAYLIST_PATH, b64, `Update playlist: add ${filename}`, sha);
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ---- track list ----
+refreshBtn.addEventListener('click', loadTrackList);
+
+async function loadTrackList() {
+    if (!token) return;
+    refreshBtn.classList.add('spinning');
+    trackList.innerHTML = '<p class="track-empty">Loading…</p>';
+    try {
+        const existing = await ghGet(PLAYLIST_PATH);
+        if (!existing) {
+            trackList.innerHTML = '<p class="track-empty">No playlist yet — upload your first track above.</p>';
+            return;
+        }
+        const decoded = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
+        const parsed = JSON.parse(decoded);
+        const tracks = Array.isArray(parsed) ? parsed : [];
+        if (!tracks.length) {
+            trackList.innerHTML = '<p class="track-empty">No tracks yet — upload your first track above.</p>';
+            return;
+        }
+        trackList.innerHTML = '';
+        tracks.forEach(entry => {
+            const t = typeof entry === 'string' ? { file: entry, title: prettify(entry) } : entry;
+            const row = document.createElement('div');
+            row.className = 'track-row';
+            row.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg><span class="track-row-name">${escapeHtml(t.title || t.file)}</span>`;
+            trackList.appendChild(row);
+        });
+    } catch (e) {
+        trackList.innerHTML = '<p class="track-empty">Couldn\'t load the track list.</p>';
+    } finally {
+        refreshBtn.classList.remove('spinning');
+    }
+}
+</script>
+</body>
+</html>
