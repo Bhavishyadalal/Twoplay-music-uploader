@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Twoplay · Content Uploader</title>
+<title>Twoplay · Music Uploader</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -222,18 +222,6 @@ input, select { font-family: inherit; }
 .btn-ghost:active:not(:disabled) { box-shadow: 0 1px 0 rgba(43,36,64,0.1); }
 
 .footnote { text-align: center; font-size: 11.5px; color: var(--text-faint); margin-top: 20px; line-height: 1.6; }
-
-/* section tabs (Music / Games) */
-.section-tabs { display: flex; gap: 6px; background: var(--surface-2); border: 2px solid var(--border-soft); border-radius: var(--blob-sm); padding: 4px; margin-bottom: 18px; }
-.section-tab { flex: 1; padding: 10px 0; border-radius: 10px; font-size: 13px; font-weight: 800; color: var(--text-dim); display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s, color 0.15s, box-shadow 0.15s; }
-.section-tab svg { width: 15px; height: 15px; }
-.section-tab.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-soft); }
-.section-panel { display: none; }
-.section-panel.active { display: block; }
-
-/* small key/id field used on the games card */
-.id-hint { font-size: 11px; color: var(--text-faint); margin-top: 6px; }
-.id-hint code { background: var(--surface-2); padding: 1px 5px; border-radius: 5px; font-family: var(--font-mono); font-size: 10.5px; }
 </style>
 </head>
 <body>
@@ -254,9 +242,9 @@ input, select { font-family: inherit; }
         </div>
         <div class="word">two<em>play</em></div>
     </div>
-    <p class="tagline">Content uploader — sends music and game modules straight to your repo.</p>
+    <p class="tagline">Cozy music uploader — sends tracks straight to your repo.</p>
 
-    <!-- CONNECTION CARD (shared by both tabs) -->
+    <!-- CONNECTION CARD -->
     <div class="card">
         <h2 class="card-title">
             <svg viewBox="0 0 24 24" fill="none"><path d="M9 12a3 3 0 106 0 3 3 0 00-6 0z" stroke="currentColor" stroke-width="1.8"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -279,164 +267,70 @@ input, select { font-family: inherit; }
         </div>
     </div>
 
-    <!-- SECTION TABS -->
-    <div class="section-tabs">
-        <button class="section-tab active" id="tab-music" data-section="music">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.8"/><circle cx="17.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.8"/></svg>
-            Music
+    <!-- UPLOAD CARD -->
+    <div class="card">
+        <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Upload a track
+        </h2>
+        <p class="card-sub">MP3 works everywhere. Files land in the <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">music/</code> folder and <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">playlist.json</code> updates itself.</p>
+
+        <div class="dropzone" id="dropzone">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="dropzone-text">Tap to choose a file</div>
+            <div class="dropzone-sub">or drop an audio file here</div>
+        </div>
+        <input type="file" id="file-input" accept="audio/*,.mp3,.opus,.wav,.m4a,.ogg">
+
+        <div class="file-preview" id="file-preview">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg>
+            <div class="file-preview-info">
+                <div class="file-preview-name" id="preview-name"></div>
+                <div class="file-preview-size" id="preview-size"></div>
+            </div>
+            <button class="file-preview-remove" id="preview-remove" title="Remove">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+
+        <input type="text" id="title-input" class="name-input" placeholder="Track title (optional — shown in the picker)">
+
+        <button class="btn btn-primary" id="upload-btn" disabled>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="upload-btn-text">Connect a token first</span>
         </button>
-        <button class="section-tab" id="tab-games" data-section="games">
-            <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor"/></svg>
-            Games
+
+        <div class="progress-wrap" id="progress-wrap">
+            <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+            <div class="progress-label" id="progress-label">Uploading…</div>
+        </div>
+
+        <div class="banner success" id="banner-success">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="banner-success-text"></span>
+        </div>
+        <div class="banner error" id="banner-error">
+            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span id="banner-error-text"></span>
+        </div>
+    </div>
+
+    <!-- CURRENT TRACKS CARD -->
+    <div class="card">
+        <h2 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            On the site right now
+        </h2>
+        <button class="refresh-btn" id="refresh-btn">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Refresh list
         </button>
+        <div class="track-list" id="track-list">
+            <p class="track-empty">Connect a token to see your tracks.</p>
+        </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- MUSIC PANEL                                                    -->
-    <!-- ============================================================ -->
-    <div class="section-panel active" id="panel-music">
-
-        <!-- UPLOAD CARD -->
-        <div class="card">
-            <h2 class="card-title">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Upload a track
-            </h2>
-            <p class="card-sub">MP3 works everywhere. Files land in the <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">music/</code> folder and <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">playlist.json</code> updates itself.</p>
-
-            <div class="dropzone" id="dropzone">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <div class="dropzone-text">Tap to choose a file</div>
-                <div class="dropzone-sub">or drop an audio file here</div>
-            </div>
-            <input type="file" id="file-input" accept="audio/*,.mp3,.opus,.wav,.m4a,.ogg">
-
-            <div class="file-preview" id="file-preview">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg>
-                <div class="file-preview-info">
-                    <div class="file-preview-name" id="preview-name"></div>
-                    <div class="file-preview-size" id="preview-size"></div>
-                </div>
-                <button class="file-preview-remove" id="preview-remove" title="Remove">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                </button>
-            </div>
-
-            <input type="text" id="title-input" class="name-input" placeholder="Track title (optional — shown in the picker)">
-
-            <button class="btn btn-primary" id="upload-btn" disabled>
-                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span id="upload-btn-text">Connect a token first</span>
-            </button>
-
-            <div class="progress-wrap" id="progress-wrap">
-                <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
-                <div class="progress-label" id="progress-label">Uploading…</div>
-            </div>
-
-            <div class="banner success" id="banner-success">
-                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span id="banner-success-text"></span>
-            </div>
-            <div class="banner error" id="banner-error">
-                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                <span id="banner-error-text"></span>
-            </div>
-        </div>
-
-        <!-- CURRENT TRACKS CARD -->
-        <div class="card">
-            <h2 class="card-title">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                On the site right now
-            </h2>
-            <button class="refresh-btn" id="refresh-btn">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Refresh list
-            </button>
-            <div class="track-list" id="track-list">
-                <p class="track-empty">Connect a token to see your tracks.</p>
-            </div>
-        </div>
-
-        <p class="footnote">Uploads go to<br><strong>Bhavishyadalal/Twoplay-01 → music/</strong></p>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- GAMES PANEL                                                    -->
-    <!-- ============================================================ -->
-    <div class="section-panel" id="panel-games">
-
-        <!-- UPLOAD CARD -->
-        <div class="card">
-            <h2 class="card-title">
-                <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" stroke="currentColor" stroke-width="1.8"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor"/></svg>
-                Upload a game
-            </h2>
-            <p class="card-sub">A single self-contained <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">.js</code> module — see <strong>GAME_MODULE_GUIDE.md</strong> for the format. Files land in <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">games/&lt;id&gt;/</code> and <code style="background:var(--surface-2); padding:1px 5px; border-radius:5px; font-family:var(--font-mono); font-size:11.5px;">manifest.json</code> updates itself — no redeploy needed, the site picks it up next load.</p>
-
-            <div class="dropzone" id="game-dropzone">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <div class="dropzone-text">Tap to choose a file</div>
-                <div class="dropzone-sub">or drop a .js game module here</div>
-            </div>
-            <input type="file" id="game-file-input" accept=".js,text/javascript,application/javascript">
-
-            <div class="file-preview" id="game-file-preview">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M9 18V6l11-2v12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.5" cy="18" r="2.5" stroke="currentColor" stroke-width="1.6"/><circle cx="17.5" cy="16" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg>
-                <div class="file-preview-info">
-                    <div class="file-preview-name" id="game-preview-name"></div>
-                    <div class="file-preview-size" id="game-preview-size"></div>
-                </div>
-                <button class="file-preview-remove" id="game-preview-remove" title="Remove">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                </button>
-            </div>
-
-            <span class="field-label" style="margin-top:14px; display:block;">Game ID</span>
-            <input type="text" id="game-id-input" class="name-input" style="margin-top:0;" placeholder="e.g. ludo (lowercase, no spaces)">
-            <p class="id-hint">Becomes the folder name <code>games/&lt;id&gt;/</code> and the internal key. Must match the <code>key</code> the module registers with.</p>
-
-            <input type="text" id="game-name-input" class="name-input" placeholder="Display name (e.g. Ludo)">
-            <input type="text" id="game-icon-input" class="name-input" placeholder="Icon — single emoji (e.g. 🎲)" maxlength="4">
-
-            <button class="btn btn-primary" id="game-upload-btn" disabled>
-                <svg viewBox="0 0 24 24" fill="none"><path d="M12 3v13m0-13l-5 5m5-5l5 5M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span id="game-upload-btn-text">Connect a token first</span>
-            </button>
-
-            <div class="progress-wrap" id="game-progress-wrap">
-                <div class="progress-track"><div class="progress-fill" id="game-progress-fill"></div></div>
-                <div class="progress-label" id="game-progress-label">Uploading…</div>
-            </div>
-
-            <div class="banner success" id="game-banner-success">
-                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span id="game-banner-success-text"></span>
-            </div>
-            <div class="banner error" id="game-banner-error">
-                <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                <span id="game-banner-error-text"></span>
-            </div>
-        </div>
-
-        <!-- CURRENT GAMES CARD -->
-        <div class="card">
-            <h2 class="card-title">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                On the site right now
-            </h2>
-            <button class="refresh-btn" id="game-refresh-btn">
-                <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Refresh list
-            </button>
-            <div class="track-list" id="game-list">
-                <p class="track-empty">Connect a token to see your games.</p>
-            </div>
-        </div>
-
-        <p class="footnote">Uploads go to<br><strong>Bhavishyadalal/Twoplay-01 → games/</strong></p>
-    </div>
+    <p class="footnote">Uploads go to<br><strong>Bhavishyadalal/Twoplay-01 → music/</strong></p>
 
 </div>
 
@@ -459,12 +353,9 @@ const REPO = 'Twoplay-01';
 const BRANCH = 'main';
 const MUSIC_DIR = 'music';
 const PLAYLIST_PATH = `${MUSIC_DIR}/playlist.json`;
-const GAMES_DIR = 'games';
-const MANIFEST_PATH = `${GAMES_DIR}/manifest.json`;
 
 let token = '';
 let selectedFile = null;
-let selectedGameFile = null;
 
 const tokenInput = document.getElementById('token-input');
 const tokenToggle = document.getElementById('token-toggle');
@@ -495,38 +386,6 @@ const deleteCancelBtn = document.getElementById('delete-cancel-btn');
 const deleteConfirmBtn = document.getElementById('delete-confirm-btn');
 const deleteConfirmText = document.getElementById('delete-confirm-text');
 
-// ---- games panel DOM refs ----
-const gameDropzone = document.getElementById('game-dropzone');
-const gameFileInput = document.getElementById('game-file-input');
-const gameFilePreview = document.getElementById('game-file-preview');
-const gamePreviewName = document.getElementById('game-preview-name');
-const gamePreviewSize = document.getElementById('game-preview-size');
-const gamePreviewRemove = document.getElementById('game-preview-remove');
-const gameIdInput = document.getElementById('game-id-input');
-const gameNameInput = document.getElementById('game-name-input');
-const gameIconInput = document.getElementById('game-icon-input');
-const gameUploadBtn = document.getElementById('game-upload-btn');
-const gameUploadBtnText = document.getElementById('game-upload-btn-text');
-const gameProgressWrap = document.getElementById('game-progress-wrap');
-const gameProgressFill = document.getElementById('game-progress-fill');
-const gameProgressLabel = document.getElementById('game-progress-label');
-const gameBannerSuccess = document.getElementById('game-banner-success');
-const gameBannerSuccessText = document.getElementById('game-banner-success-text');
-const gameBannerError = document.getElementById('game-banner-error');
-const gameBannerErrorText = document.getElementById('game-banner-error-text');
-const gameList = document.getElementById('game-list');
-const gameRefreshBtn = document.getElementById('game-refresh-btn');
-
-// ---- section tabs ----
-document.querySelectorAll('.section-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.section-panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        document.getElementById('panel-' + tab.dataset.section).classList.add('active');
-    });
-});
-
 // ---- token show/hide ----
 tokenToggle.addEventListener('click', () => {
     tokenInput.type = tokenInput.type === 'password' ? 'text' : 'password';
@@ -550,7 +409,6 @@ async function checkToken() {
         if (res.ok) {
             setConnStatus('ok', 'Connected to Twoplay-01');
             loadTrackList();
-            loadGameList();
         } else if (res.status === 401) {
             setConnStatus('err', 'Invalid token');
         } else if (res.status === 404) {
@@ -562,7 +420,6 @@ async function checkToken() {
         setConnStatus('err', 'Could not reach GitHub');
     }
     updateUploadState();
-    updateGameUploadState();
 }
 
 function setConnStatus(state, text) {
@@ -580,21 +437,6 @@ function updateUploadState() {
         uploadBtnText.textContent = 'Choose a file first';
     } else {
         uploadBtnText.textContent = 'Upload to site';
-    }
-}
-
-function updateGameUploadState() {
-    const gameId = sanitizeGameId(gameIdInput.value);
-    const ready = token && connStatus.classList.contains('ok') && selectedGameFile && gameId;
-    gameUploadBtn.disabled = !ready;
-    if (!token || !connStatus.classList.contains('ok')) {
-        gameUploadBtnText.textContent = 'Connect a token first';
-    } else if (!selectedGameFile) {
-        gameUploadBtnText.textContent = 'Choose a file first';
-    } else if (!gameId) {
-        gameUploadBtnText.textContent = 'Enter a game ID first';
-    } else {
-        gameUploadBtnText.textContent = 'Upload to site';
     }
 }
 
@@ -647,57 +489,6 @@ function sanitizeFilename(name) {
 function hideBanners() {
     bannerSuccess.classList.remove('show');
     bannerError.classList.remove('show');
-}
-
-// ---- games: file selection ----
-gameDropzone.addEventListener('click', () => gameFileInput.click());
-gameDropzone.addEventListener('dragover', (e) => { e.preventDefault(); gameDropzone.classList.add('drag'); });
-gameDropzone.addEventListener('dragleave', () => gameDropzone.classList.remove('drag'));
-gameDropzone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    gameDropzone.classList.remove('drag');
-    if (e.dataTransfer.files.length) handleGameFile(e.dataTransfer.files[0]);
-});
-gameFileInput.addEventListener('change', () => {
-    if (gameFileInput.files.length) handleGameFile(gameFileInput.files[0]);
-});
-gamePreviewRemove.addEventListener('click', (e) => {
-    e.stopPropagation();
-    selectedGameFile = null;
-    gameFileInput.value = '';
-    gameFilePreview.classList.remove('show');
-    gameDropzone.classList.remove('has-file');
-    updateGameUploadState();
-});
-gameIdInput.addEventListener('input', () => updateGameUploadState());
-
-function handleGameFile(file) {
-    if (!/\.js$/i.test(file.name)) {
-        gameBannerErrorText.textContent = 'Game modules must be a .js file — see GAME_MODULE_GUIDE.md.';
-        gameBannerError.classList.add('show');
-        return;
-    }
-    selectedGameFile = file;
-    gamePreviewName.textContent = file.name;
-    gamePreviewSize.textContent = formatBytes(file.size);
-    gameFilePreview.classList.add('show');
-    gameDropzone.classList.add('has-file');
-    if (!gameIdInput.value) gameIdInput.value = sanitizeGameId(file.name.replace(/\.js$/i, ''));
-    if (!gameNameInput.value) gameNameInput.value = prettify(file.name.replace(/\.js$/i, ''));
-    hideGameBanners();
-    updateGameUploadState();
-}
-
-// Same key format the main site's registerGame() expects: lowercase,
-// no spaces, matches [a-z0-9-]+ so it's safe as both a folder name and
-// a JS object key lookup (GameControllers[id]).
-function sanitizeGameId(name) {
-    return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-}
-
-function hideGameBanners() {
-    gameBannerSuccess.classList.remove('show');
-    gameBannerError.classList.remove('show');
 }
 
 // ---- GitHub API helpers ----
@@ -795,102 +586,6 @@ async function doUpload() {
         setTimeout(() => { progressWrap.classList.remove('show'); progressFill.style.width = '0%'; }, 600);
         updateUploadState();
     }
-}
-
-// ---- games: upload flow ----
-gameUploadBtn.addEventListener('click', doGameUpload);
-
-async function doGameUpload() {
-    if (!selectedGameFile || !token) return;
-    const gameId = sanitizeGameId(gameIdInput.value);
-    if (!gameId) return;
-
-    hideGameBanners();
-    gameUploadBtn.disabled = true;
-    gameProgressWrap.classList.add('show');
-    gameProgressFill.style.width = '15%';
-    gameProgressLabel.textContent = 'Reading file…';
-
-    try {
-        const base64 = await fileToBase64(selectedGameFile);
-        gameProgressFill.style.width = '40%';
-        gameProgressLabel.textContent = 'Uploading to GitHub…';
-
-        const entryFile = sanitizeFilename(selectedGameFile.name) || `${gameId}.js`;
-        const targetPath = `${GAMES_DIR}/${gameId}/${entryFile}`;
-        const displayName = gameNameInput.value.trim() || prettify(gameId);
-        const icon = gameIconInput.value.trim() || '🎮';
-
-        // check if this module file already exists (to send its sha, avoids overwrite errors) —
-        // this also doubles as "update an existing game" when the same id+filename is re-uploaded
-        const existing = await ghGet(targetPath);
-        await ghPut(targetPath, base64, `Add/update game module: ${gameId}`, existing ? existing.sha : undefined);
-
-        gameProgressFill.style.width = '70%';
-        gameProgressLabel.textContent = 'Updating manifest…';
-
-        await updateManifest(gameId, entryFile, displayName, icon);
-
-        gameProgressFill.style.width = '100%';
-        gameProgressLabel.textContent = 'Done';
-
-        gameBannerSuccessText.innerHTML = `<strong>${escapeHtml(displayName)}</strong> is live in <code>games/${escapeHtml(gameId)}/</code>. It'll show up in the site's game picker next time it's opened.`;
-        gameBannerSuccess.classList.add('show');
-
-        // reset form
-        selectedGameFile = null;
-        gameFileInput.value = '';
-        gameIdInput.value = '';
-        gameNameInput.value = '';
-        gameIconInput.value = '';
-        gameFilePreview.classList.remove('show');
-        gameDropzone.classList.remove('has-file');
-        loadGameList();
-    } catch (e) {
-        gameBannerErrorText.textContent = e.message || 'Something went wrong during upload.';
-        gameBannerError.classList.add('show');
-    } finally {
-        setTimeout(() => { gameProgressWrap.classList.remove('show'); gameProgressFill.style.width = '0%'; }, 600);
-        updateGameUploadState();
-    }
-}
-
-async function getManifest() {
-    const existing = await ghGet(MANIFEST_PATH);
-    if (!existing) return { manifest: [], sha: undefined };
-    const decoded = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
-    const parsed = JSON.parse(decoded);
-    const manifest = Array.isArray(parsed) ? parsed : [];
-    return { manifest, sha: existing.sha };
-}
-
-async function writeManifest(manifest, sha, message) {
-    const json = JSON.stringify(manifest, null, 2);
-    const b64 = btoa(unescape(encodeURIComponent(json)));
-    await ghPut(MANIFEST_PATH, b64, message, sha);
-}
-
-async function updateManifest(id, entry, name, icon) {
-    const { manifest, sha } = await getManifest();
-    const next = manifest.filter(g => g.id !== id);
-    next.push({ id, entry, name, icon });
-    await writeManifest(next, sha, `Update games manifest: add ${id}`);
-}
-
-async function removeGame(game) {
-    // 1) delete every file GitHub knows about under games/<id>/ (usually
-    // just the one entry module, but this walks the whole folder in case
-    // a module ever ships with more than one file).
-    const dirListing = await ghGet(`${GAMES_DIR}/${game.id}`);
-    if (Array.isArray(dirListing)) {
-        for (const item of dirListing) {
-            await ghDelete(`${GAMES_DIR}/${game.id}/${item.name}`, `Remove game module: ${game.id}/${item.name}`, item.sha);
-        }
-    }
-    // 2) remove its entry from manifest.json
-    const { manifest, sha } = await getManifest();
-    const next = manifest.filter(g => g.id !== game.id);
-    await writeManifest(next, sha, `Update games manifest: remove ${game.id}`);
 }
 
 async function getPlaylist() {
@@ -1063,14 +758,8 @@ function startRename(row, track) {
     });
 }
 
-// The delete-confirm sheet is shared between the music and games panels.
-// pendingDeleteKind is 'track' | 'game' so the single confirm handler
-// knows which remove function + reload function + banner to use.
-let pendingDeleteKind = null;
-
 function openDeleteConfirm(track) {
     pendingDeleteTrack = track;
-    pendingDeleteKind = 'track';
     deleteTrackName.textContent = track.title || track.file;
     deleteConfirmText.textContent = 'Remove';
     deleteConfirmBtn.disabled = false;
@@ -1081,15 +770,12 @@ function openDeleteConfirm(track) {
 function closeDeleteConfirm() {
     deleteOverlay.classList.remove('show');
     pendingDeleteTrack = null;
-    pendingDeleteGame = null;
-    pendingDeleteKind = null;
 }
 
 deleteCancelBtn.addEventListener('click', closeDeleteConfirm);
 deleteOverlay.addEventListener('click', (e) => { if (e.target === deleteOverlay) closeDeleteConfirm(); });
 
 deleteConfirmBtn.addEventListener('click', async () => {
-    if (pendingDeleteKind === 'game') { await doDeleteGame(); return; }
     if (!pendingDeleteTrack) return;
     const track = pendingDeleteTrack;
     deleteConfirmBtn.disabled = true;
@@ -1110,27 +796,6 @@ deleteConfirmBtn.addEventListener('click', async () => {
     }
 });
 
-async function doDeleteGame() {
-    if (!pendingDeleteGame) return;
-    const game = pendingDeleteGame;
-    deleteConfirmBtn.disabled = true;
-    deleteCancelBtn.disabled = true;
-    deleteConfirmText.innerHTML = '<span class="spinner"></span>';
-    try {
-        await removeGame(game);
-        closeDeleteConfirm();
-        toastMsg(`Removed "${game.name || game.id}".`);
-        loadGameList();
-    } catch (e) {
-        deleteConfirmBtn.disabled = false;
-        deleteCancelBtn.disabled = false;
-        deleteConfirmText.textContent = 'Remove';
-        gameBannerErrorText.textContent = e.message || 'Could not remove that game.';
-        gameBannerError.classList.add('show');
-        closeDeleteConfirm();
-    }
-}
-
 // simple transient message, reuses the success banner styling briefly
 let toastTimer = null;
 function toastMsg(text) {
@@ -1139,70 +804,6 @@ function toastMsg(text) {
     bannerSuccessText.textContent = text;
     bannerSuccess.classList.add('show');
     toastTimer = setTimeout(() => bannerSuccess.classList.remove('show'), 3200);
-}
-
-// ---- games list ----
-gameRefreshBtn.addEventListener('click', loadGameList);
-
-let cachedGames = [];
-let pendingDeleteGame = null;
-
-async function loadGameList() {
-    if (!token) return;
-    gameRefreshBtn.classList.add('spinning');
-    gameList.innerHTML = '<p class="track-empty">Loading…</p>';
-    try {
-        const { manifest } = await getManifest();
-        cachedGames = manifest;
-        renderGameList();
-        if (!cachedGames.length) {
-            gameList.innerHTML = '<p class="track-empty">No games yet — upload your first module above.</p>';
-        }
-    } catch (e) {
-        gameList.innerHTML = '<p class="track-empty">Couldn\'t load the games list.</p>';
-    } finally {
-        gameRefreshBtn.classList.remove('spinning');
-    }
-}
-
-function renderGameList() {
-    gameList.innerHTML = '';
-    cachedGames.forEach(g => {
-        const row = document.createElement('div');
-        row.className = 'track-row';
-
-        row.innerHTML = `<span style="font-size:15px; line-height:1; flex-shrink:0;">${escapeHtml(g.icon || '🎮')}</span>`;
-
-        const name = document.createElement('span');
-        name.className = 'track-row-name';
-        name.innerText = g.name || g.id;
-        row.appendChild(name);
-
-        const actions = document.createElement('div');
-        actions.className = 'track-actions';
-
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'track-action-btn danger';
-        deleteBtn.title = 'Remove';
-        deleteBtn.setAttribute('aria-label', 'Remove game');
-        deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7m2 0v12.5A1.5 1.5 0 0 1 15.5 21h-7A1.5 1.5 0 0 1 7 19.5V7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        deleteBtn.addEventListener('click', () => openDeleteConfirmGame(g));
-
-        actions.appendChild(deleteBtn);
-        row.appendChild(actions);
-
-        gameList.appendChild(row);
-    });
-}
-
-function openDeleteConfirmGame(game) {
-    pendingDeleteGame = game;
-    pendingDeleteKind = 'game';
-    deleteTrackName.textContent = game.name || game.id;
-    deleteConfirmText.textContent = 'Remove';
-    deleteConfirmBtn.disabled = false;
-    deleteCancelBtn.disabled = false;
-    deleteOverlay.classList.add('show');
 }
 </script>
 </body>
