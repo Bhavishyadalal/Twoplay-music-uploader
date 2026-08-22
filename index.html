@@ -533,11 +533,8 @@ html[data-theme="dark"] .banner.warn { color: #F5D18C; }
 .refresh-btn:hover svg { transform: rotate(90deg); }
 .refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
 
-.rebuild-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; font-size: 11.5px; font-weight: 800; color: var(--accent-2); background: var(--accent-2-dim); border: 2px dashed var(--accent-2); border-radius: var(--blob-sm); padding: 8px 10px; margin-bottom: 12px; transition: transform 0.12s, opacity 0.15s; }
-.rebuild-btn:hover:not(:disabled) { transform: translateY(-1px); opacity: 0.88; }
-.rebuild-btn:disabled { opacity: 0.6; cursor: default; }
-.rebuild-btn svg { width: 14px; height: 14px; flex-shrink: 0; transition: transform 0.5s cubic-bezier(.34,1.56,.64,1); }
-.rebuild-btn.spinning svg { animation: spin 0.8s linear infinite; }
+#rebuild-playlist-btn { margin-top: 0; margin-bottom: 14px; padding: 11px 0; font-size: 13px; }
+#rebuild-playlist-btn svg { width: 15px; height: 15px; }
 
 .track-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .track-action-btn { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-faint); flex-shrink: 0; transition: background 0.15s, color 0.15s, transform 0.15s; }
@@ -833,7 +830,7 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
             <span class="last-synced" id="last-synced"></span>
         </div>
 
-        <button class="rebuild-btn" id="rebuild-playlist-btn" type="button" title="Rescans music/ on GitHub and syncs playlist.json to match it exactly">
+        <button class="btn btn-primary" id="rebuild-playlist-btn" type="button" title="Rescans music/ on GitHub and syncs playlist.json to match it exactly">
             <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span id="rebuild-playlist-btn-text">Recreate playlist.json from music folder</span>
         </button>
@@ -1816,7 +1813,10 @@ async function doUpload() {
     let filesDone = 0;
     const succeededTitles = [];
 
-    // ---- PHASE 1: upload every audio file to GitHub. ----
+    // ---- Upload every audio file to GitHub. That's it — this step only ----
+    // ---- puts bytes in music/. playlist.json is a separate, manual step ----
+    // ---- (the "Recreate playlist.json" button), so the site's picker    ----
+    // ---- never sees a half-uploaded batch.                              ----
     // Each file lives at its own path, so these uploads don't share a sha
     // and can safely run concurrently — no read-modify-write race here.
     // A small concurrency cap keeps us well under GitHub's abuse-rate
@@ -1838,7 +1838,7 @@ async function doUpload() {
             try {
                 progressLabel.textContent = `Uploading ${item.file.name}…`;
                 const base64 = await fileToBase64(item.file);
-                item.progress = 40;
+                item.progress = 50;
                 renderQueue();
 
                 const safeName = sanitizeFilename(item.file.name);
@@ -1848,8 +1848,10 @@ async function doUpload() {
 
                 item.fileUploaded = true;
                 item.safeName = safeName;
-                item.progress = 70;
+                item.status = 'done';
+                item.progress = 100;
                 item.error = null;
+                succeededTitles.push(item.title.trim() || prettify(item.file.name));
             } catch (e) {
                 item.status = 'failed';
                 item.progress = 0;
@@ -1857,65 +1859,21 @@ async function doUpload() {
             }
             filesDone++;
             progressCount.textContent = `${filesDone} / ${total}`;
-            progressFill.style.width = `${(filesDone / total) * 70}%`;
+            progressFill.style.width = `${(filesDone / total) * 100}%`;
             renderQueue();
         }
     }
     await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
 
-    // ---- PHASE 2: single playlist.json update for every file that ----
-    // ---- uploaded successfully, merged and committed all at once.  ----
-    const readyItems = queue.filter(item => item.fileUploaded && item.status !== 'done');
-    if (readyItems.length) {
-        progressLabel.textContent = 'Updating playlist…';
-        renderQueue();
-        try {
-            await withPlaylistRetry(playlist => {
-                let next = playlist;
-                for (const item of readyItems) {
-                    const finalTitle = item.title.trim() || prettify(item.file.name);
-                    item._finalTitle = finalTitle;
-                    const prior = next.find(entry => (entry.file || entry.name) === item.safeName);
-                    next = next.filter(entry => (entry.file || entry.name) !== item.safeName);
-                    const entry = { file: item.safeName, title: finalTitle, addedAt: (prior && prior.addedAt) || new Date().toISOString() };
-                    const cover = item.coverDataUrl || (prior && prior.cover);
-                    if (cover) entry.cover = cover;
-                    if (prior && prior.tags && prior.tags.length) entry.tags = prior.tags;
-                    if (prior && prior.duration) entry.duration = prior.duration;
-                    next.push(entry);
-                }
-                return next;
-            }, `Add ${readyItems.length} track${readyItems.length === 1 ? '' : 's'}`);
-
-            for (const item of readyItems) {
-                item.status = 'done';
-                item.progress = 100;
-                item.error = null;
-                succeededTitles.push(item._finalTitle);
-            }
-        } catch (e) {
-            // The single playlist commit failed after retries — this is rare
-            // (e.g. token lost repo access mid-run) but keep the audio files
-            // marked uploaded so a retry only redoes this cheap step.
-            const msg = describeUploadError(e);
-            for (const item of readyItems) {
-                item.status = 'failed';
-                item.error = msg;
-            }
-        }
-    }
-    progressFill.style.width = '100%';
-    renderQueue();
-
     const failedCount = queue.filter(q => q.status === 'failed').length;
 
     progressLabel.textContent = 'Done';
-    setLastSynced(new Date());
 
     if (succeededTitles.length) {
-        bannerSuccessText.innerHTML = succeededTitles.length === 1
-            ? `<strong>${escapeHtml(succeededTitles[0])}</strong> is live in the music folder. It'll show up in the site's music picker next time it's opened.`
-            : `<strong>${succeededTitles.length} tracks</strong> are live in the music folder, including <strong>${escapeHtml(succeededTitles[0])}</strong>.`;
+        bannerSuccessText.innerHTML = (succeededTitles.length === 1
+            ? `<strong>${escapeHtml(succeededTitles[0])}</strong> is uploaded to the music folder.`
+            : `<strong>${succeededTitles.length} tracks</strong> are uploaded to the music folder, including <strong>${escapeHtml(succeededTitles[0])}</strong>.`)
+            + ` Click <strong>"Recreate playlist.json from music folder"</strong> below to add ${succeededTitles.length === 1 ? 'it' : 'them'} to playlist.json — the site won't see ${succeededTitles.length === 1 ? 'it' : 'them'} until then.`;
         bannerSuccess.classList.add('show');
         setCatState('success');
         celebratePaws();
@@ -1932,7 +1890,6 @@ async function doUpload() {
     renderQueue();
     setTimeout(() => { progressWrap.classList.remove('show'); progressFill.style.width = '0%'; progressCount.textContent = ''; }, 700);
     updateUploadState();
-    loadTrackList();
 }
 
 /* ============================================================ */
@@ -2170,13 +2127,16 @@ async function reorderPlaylist(newOrderFiles) {
 /* ============================================================ */
 refreshBtn.addEventListener('click', loadTrackList);
 
+const rebuildPlaylistBtnIcon = rebuildPlaylistBtn.querySelector('svg');
+const REBUILD_BTN_ICON_HTML = rebuildPlaylistBtnIcon.outerHTML;
+
 rebuildPlaylistBtn.addEventListener('click', async () => {
     if (!token) { showToast('Connect a token first.'); return; }
     const proceed = confirm("Rescan music/ on GitHub and sync playlist.json to match it exactly?\n\nExisting titles, cover art, tags, and order are kept for tracks that are still there. Files missing an entry get added; entries for files that no longer exist get removed.");
     if (!proceed) return;
 
     rebuildPlaylistBtn.disabled = true;
-    rebuildPlaylistBtn.classList.add('spinning');
+    rebuildPlaylistBtn.querySelector('svg').outerHTML = '<span class="spinner"></span>';
     rebuildPlaylistBtnText.textContent = 'Syncing…';
     hideBanners();
     try {
@@ -2210,7 +2170,8 @@ rebuildPlaylistBtn.addEventListener('click', async () => {
         setCatState('error');
     } finally {
         rebuildPlaylistBtn.disabled = false;
-        rebuildPlaylistBtn.classList.remove('spinning');
+        const spinner = rebuildPlaylistBtn.querySelector('.spinner');
+        if (spinner) spinner.outerHTML = REBUILD_BTN_ICON_HTML;
         rebuildPlaylistBtnText.textContent = 'Recreate playlist.json from music folder';
     }
 });
