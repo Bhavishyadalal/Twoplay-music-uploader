@@ -1817,18 +1817,47 @@ async function writePlaylist(playlist, sha, message) {
     await ghPut(PLAYLIST_PATH, b64, message, sha);
 }
 
+/**
+ * Runs a read-modify-write cycle against playlist.json with automatic
+ * retry-on-conflict. GitHub's Contents API can briefly return a stale sha
+ * right after a commit, so back-to-back writes (like uploading several
+ * files in a row) can hit a 409 "sha does not match" error. Instead of
+ * failing the whole item, we just re-fetch the latest playlist and retry
+ * the same mutation a few times before giving up.
+ */
+async function withPlaylistRetry(mutateFn, message, maxAttempts = 5) {
+    let lastErr;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const { playlist, sha } = await getPlaylist();
+            const next = mutateFn(playlist);
+            await writePlaylist(next, sha, message);
+            return next;
+        } catch (e) {
+            lastErr = e;
+            const msg = (e && e.message || '').toLowerCase();
+            const isConflict = msg.includes('409') || msg.includes('does not match') || msg.includes('sha');
+            if (!isConflict || attempt === maxAttempts) throw e;
+            // small backoff before re-reading the latest sha and retrying
+            await new Promise(r => setTimeout(r, 250 * attempt));
+        }
+    }
+    throw lastErr;
+}
+
 async function updatePlaylist(filename, title, coverDataUrl, extra) {
-    const { playlist, sha } = await getPlaylist();
-    const prior = playlist.find(entry => (entry.file || entry.name) === filename);
-    const next = playlist.filter(entry => (entry.file || entry.name) !== filename);
-    const entry = { file: filename, title, addedAt: (prior && prior.addedAt) || (extra && extra.addedAt) || new Date().toISOString() };
-    const cover = coverDataUrl || (prior && prior.cover);
-    if (cover) entry.cover = cover;
-    if ((prior && prior.tags && prior.tags.length)) entry.tags = prior.tags;
-    if (extra && extra.duration) entry.duration = extra.duration;
-    else if (prior && prior.duration) entry.duration = prior.duration;
-    next.push(entry);
-    await writePlaylist(next, sha, `Update playlist: add ${filename}`);
+    await withPlaylistRetry(playlist => {
+        const prior = playlist.find(entry => (entry.file || entry.name) === filename);
+        const next = playlist.filter(entry => (entry.file || entry.name) !== filename);
+        const entry = { file: filename, title, addedAt: (prior && prior.addedAt) || (extra && extra.addedAt) || new Date().toISOString() };
+        const cover = coverDataUrl || (prior && prior.cover);
+        if (cover) entry.cover = cover;
+        if ((prior && prior.tags && prior.tags.length)) entry.tags = prior.tags;
+        if (extra && extra.duration) entry.duration = extra.duration;
+        else if (prior && prior.duration) entry.duration = prior.duration;
+        next.push(entry);
+        return next;
+    }, `Update playlist: add ${filename}`);
 }
 
 async function removeTrack(track) {
@@ -1837,27 +1866,27 @@ async function removeTrack(track) {
     if (fileMeta) {
         await ghDelete(filePath, `Remove music track: ${track.file}`, fileMeta.sha);
     }
-    const { playlist, sha } = await getPlaylist();
-    const next = playlist.filter(entry => (entry.file || entry.name) !== track.file);
-    await writePlaylist(next, sha, `Update playlist: remove ${track.file}`);
+    await withPlaylistRetry(playlist => {
+        return playlist.filter(entry => (entry.file || entry.name) !== track.file);
+    }, `Update playlist: remove ${track.file}`);
     return fileMeta; // needed if caller wants to restore
 }
 
 async function renameTrack(track, newTitle) {
-    const { playlist, sha } = await getPlaylist();
-    const next = playlist.map(entry => {
-        const f = entry.file || entry.name;
-        return f === track.file ? { ...entry, file: f, title: newTitle } : entry;
-    });
-    await writePlaylist(next, sha, `Update playlist: rename ${track.file}`);
+    await withPlaylistRetry(playlist => {
+        return playlist.map(entry => {
+            const f = entry.file || entry.name;
+            return f === track.file ? { ...entry, file: f, title: newTitle } : entry;
+        });
+    }, `Update playlist: rename ${track.file}`);
 }
 
 async function reorderPlaylist(newOrderFiles) {
-    const { playlist, sha } = await getPlaylist();
-    const byFile = {};
-    playlist.forEach(e => { byFile[e.file || e.name] = e; });
-    const next = newOrderFiles.map(f => byFile[f]).filter(Boolean);
-    await writePlaylist(next, sha, `Update playlist: reorder tracks`);
+    await withPlaylistRetry(playlist => {
+        const byFile = {};
+        playlist.forEach(e => { byFile[e.file || e.name] = e; });
+        return newOrderFiles.map(f => byFile[f]).filter(Boolean);
+    }, `Update playlist: reorder tracks`);
 }
 
 /* ============================================================ */
