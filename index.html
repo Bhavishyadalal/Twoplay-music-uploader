@@ -463,7 +463,16 @@ html[data-theme="dark"] .banner.warn { color: #F5D18C; }
 .sort-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-dim); }
 
 /* track list */
-.track-list { display: flex; flex-direction: column; gap: 8px; }
+.track-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: min(520px, 60vh); overflow-y: auto; overflow-x: hidden;
+    padding-right: 4px; margin-right: -4px; scroll-behavior: smooth;
+}
+.track-list::-webkit-scrollbar { width: 7px; }
+.track-list::-webkit-scrollbar-track { background: transparent; }
+.track-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.track-list::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
+.track-list { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 .track-row {
     display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: var(--blob-sm); background: var(--surface-2); border: 2px solid var(--border-soft); position: relative;
     animation: pop-in 0.32s cubic-bezier(.22,1,.36,1) both;
