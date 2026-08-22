@@ -1742,7 +1742,8 @@ function ghPutWithRetry(path, base64Content, message, sha) {
 function describeUploadError(e) {
     const status = e && e.status;
     const msg = (e && e.message) || 'Unknown error';
-    if (status === 401 || status === 403 && /bad credentials/i.test(msg)) return 'Token invalid or expired';
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) return 'Network error — check your connection';
+    if (status === 401 || (status === 403 && /bad credentials/i.test(msg))) return 'Token invalid or expired';
     if (status === 403 && /rate limit/i.test(msg)) return 'GitHub rate limit — try again shortly';
     if (status === 409 || /does not match/i.test(msg)) return 'Sync conflict — retry to fix';
     if (status === 413 || /too large/i.test(msg)) return 'File too large for GitHub API (25MB limit)';
@@ -1913,17 +1914,85 @@ async function doUpload() {
 async function getPlaylist() {
     const existing = await ghGet(PLAYLIST_PATH);
     if (!existing) return { playlist: [], sha: undefined };
-    const decoded = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
-    const parsed = JSON.parse(decoded);
+    let decoded;
+    try {
+        decoded = decodeURIComponent(escape(atob(existing.content.replace(/\n/g, ''))));
+    } catch (e) {
+        throw corruptPlaylistError(existing.sha, 'Playlist file is not valid base64');
+    }
+    let parsed;
+    try {
+        parsed = JSON.parse(decoded);
+    } catch (e) {
+        // playlist.json exists but its content isn't valid JSON — most
+        // likely a previous write got interrupted (tab closed mid-upload,
+        // network dropped mid-request) and left a truncated/partial file.
+        // Surface this as a distinct, recoverable error so the UI can
+        // offer to rebuild it instead of just failing forever.
+        throw corruptPlaylistError(existing.sha, e.message);
+    }
     let playlist = Array.isArray(parsed) ? parsed : [];
     playlist = playlist.map(entry => typeof entry === 'string' ? { file: entry, title: prettify(entry) } : entry);
     return { playlist, sha: existing.sha };
 }
 
+function corruptPlaylistError(sha, detail) {
+    const e = new Error(`playlist.json is corrupted (${detail})`);
+    e.corruptPlaylist = true;
+    e.sha = sha;
+    return e;
+}
+
 async function writePlaylist(playlist, sha, message) {
+    // Defensive check: never let a bad in-memory array get committed as
+    // the new playlist.json — that would corrupt it for everyone.
+    if (!Array.isArray(playlist)) throw new Error('Refusing to write a non-array playlist');
     const json = JSON.stringify(playlist, null, 2);
+    // Verify our own output parses before sending it to GitHub, so a bug
+    // here can never itself produce a broken playlist.json.
+    JSON.parse(json);
     const b64 = btoa(unescape(encodeURIComponent(json)));
     await ghPut(PLAYLIST_PATH, b64, message, sha);
+}
+
+const AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac'];
+
+/**
+ * Rebuilds playlist.json from the actual list of audio files sitting in
+ * the music/ folder on GitHub. Used to recover when playlist.json is
+ * missing or corrupted — this is the source of truth for "what audio
+ * files actually exist", so it can always regenerate a working playlist
+ * even if the metadata file itself is unrecoverable.
+ */
+async function rebuildPlaylistFromRepoFiles() {
+    const listing = await ghGet(MUSIC_DIR);
+    if (!Array.isArray(listing)) return [];
+    const audioFiles = listing.filter(entry =>
+        entry.type === 'file' &&
+        AUDIO_EXTENSIONS.some(ext => entry.name.toLowerCase().endsWith(ext))
+    );
+    return audioFiles.map(entry => ({
+        file: entry.name,
+        title: prettify(entry.name),
+        addedAt: new Date().toISOString()
+    }));
+}
+
+/**
+ * Like getPlaylist(), but if playlist.json is corrupted, automatically
+ * rebuilds it from the real files in music/ and writes a fresh, valid
+ * playlist.json back to the repo before returning. This is the self-heal
+ * path so a corrupted metadata file doesn't permanently break the site.
+ */
+async function getPlaylistSelfHealing() {
+    try {
+        return await getPlaylist();
+    } catch (e) {
+        if (!e.corruptPlaylist) throw e;
+        const rebuilt = await rebuildPlaylistFromRepoFiles();
+        await writePlaylist(rebuilt, e.sha, 'Repair playlist.json: rebuilt from music/ folder contents');
+        return { playlist: rebuilt, sha: undefined };
+    }
 }
 
 /**
@@ -2040,13 +2109,45 @@ async function loadTrackList() {
     refreshBtn.classList.add('spinning');
     trackList.innerHTML = `<div style="text-align:center; padding:14px 0;"><div class="yarn-loader"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="var(--accent)" stroke-width="1.8" opacity="0.5" class="yarn-spin"/><path d="M5 9c4 2 8 2 12-1M4 14c5 2 10 1 15-2M7 18c4 1 9 0 13-3" stroke="var(--accent)" stroke-width="1.3" stroke-linecap="round"/></svg></div><p class="track-empty" style="padding-top:0;">Loading…</p></div>`;
     try {
-        const { playlist } = await getPlaylist();
+        let playlist;
+        try {
+            ({ playlist } = await getPlaylist());
+        } catch (e) {
+            if (!e.corruptPlaylist) throw e;
+            // playlist.json exists but isn't valid JSON — rebuild it from
+            // the actual audio files sitting in music/ and write a fresh
+            // copy back, so the site self-heals instead of staying broken.
+            trackList.innerHTML = `<p class="track-empty">playlist.json was corrupted — rebuilding it from your music files…</p>`;
+            const result = await getPlaylistSelfHealing();
+            playlist = result.playlist;
+            showToast && showToast('playlist.json was corrupted and has been rebuilt from your music/ folder.');
+        }
         cachedTracks = playlist;
         renderTrackList();
         setLastSynced(new Date());
         updateLibStats();
     } catch (e) {
-        trackList.innerHTML = '<p class="track-empty">Couldn\'t load the track list.</p>';
+        const reason = describeUploadError(e);
+        console.error('loadTrackList failed:', e);
+        trackList.innerHTML = `<p class="track-empty">Couldn't load the track list — ${escapeHtml(reason)}</p><p style="text-align:center; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;"><button type="button" class="btn btn-secondary" id="track-list-retry" style="margin-top:8px;">Try again</button><button type="button" class="btn btn-secondary" id="track-list-rebuild" style="margin-top:8px;">Rebuild playlist.json from music files</button></p>`;
+        const retryBtn = document.getElementById('track-list-retry');
+        if (retryBtn) retryBtn.addEventListener('click', loadTrackList);
+        const rebuildBtn = document.getElementById('track-list-rebuild');
+        if (rebuildBtn) rebuildBtn.addEventListener('click', async () => {
+            rebuildBtn.disabled = true;
+            rebuildBtn.textContent = 'Rebuilding…';
+            try {
+                const rebuilt = await rebuildPlaylistFromRepoFiles();
+                const existing = await ghGet(PLAYLIST_PATH);
+                await writePlaylist(rebuilt, existing ? existing.sha : undefined, 'Repair playlist.json: rebuilt from music/ folder contents');
+                showToast && showToast('playlist.json rebuilt from your music/ folder.');
+                loadTrackList();
+            } catch (err) {
+                rebuildBtn.disabled = false;
+                rebuildBtn.textContent = 'Rebuild playlist.json from music files';
+                alert('Rebuild failed: ' + describeUploadError(err));
+            }
+        });
     } finally {
         refreshBtn.classList.remove('spinning');
     }
