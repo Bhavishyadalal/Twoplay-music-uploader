@@ -991,7 +991,7 @@ const TOKEN_STORAGE_KEY = 'twoplay_dash_token';
 const THEME_STORAGE_KEY = 'twoplay_dash_theme';
 
 let token = '';
-/** queue items: { id, file, title, coverDataUrl, status: 'pending'|'uploading'|'done'|'failed', dup } */
+/** queue items: { id, file, title, coverDataUrl, status: 'pending'|'uploading'|'done'|'failed', dup, fileUploaded, safeName, error } */
 let queue = [];
 let queueDragId = null;
 let trackDragFile = null;
@@ -1550,7 +1550,7 @@ function renderQueue() {
         meta.className = 'queue-meta';
         meta.innerHTML = `<span>${formatBytes(item.file.size)}</span>` + (item.dup ? `<span class="warn-tag">already on site — will overwrite</span>` : '') +
             (item.status === 'done' ? `<span style="color:var(--good); font-weight:800;">uploaded</span>` : '') +
-            (item.status === 'failed' ? `<span style="color:var(--bad); font-weight:800;">failed</span>` : '');
+            (item.status === 'failed' ? `<span style="color:var(--bad); font-weight:800;" title="${escapeHtml(item.error || 'failed')}">failed${item.error ? ' — ' + escapeHtml(item.error) : ''}</span>` : '');
         info.appendChild(meta);
 
         const itemProgress = document.createElement('div');
@@ -1653,12 +1653,21 @@ function hideBanners() {
 /* ============================================================ */
 /* GitHub API helpers                                              */
 /* ============================================================ */
+function ghError(status, message) {
+    const e = new Error(message);
+    e.status = status;
+    return e;
+}
+
 async function ghGet(path) {
     const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${path}?ref=${BRANCH}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
     });
     if (res.status === 404) return null;
-    if (!res.ok) throw new Error(`GitHub GET failed (${res.status})`);
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw ghError(res.status, err.message || `GitHub GET failed (${res.status})`);
+    }
     return res.json();
 }
 
@@ -1672,7 +1681,7 @@ async function ghPut(path, base64Content, message, sha) {
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `GitHub PUT failed (${res.status})`);
+        throw ghError(res.status, err.message || `GitHub PUT failed (${res.status})`);
     }
     return res.json();
 }
@@ -1685,9 +1694,60 @@ async function ghDelete(path, message, sha) {
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || `GitHub DELETE failed (${res.status})`);
+        throw ghError(res.status, err.message || `GitHub DELETE failed (${res.status})`);
     }
     return res.json();
+}
+
+/**
+ * Generic retry wrapper for a single GitHub API call, used for the audio
+ * file PUT/GET (not the playlist read-modify-write, which has its own
+ * lock+retry in withPlaylistRetry). Handles the same eventual-consistency
+ * 409s and 403 rate limits.
+ */
+async function ghWithRetry(fn, maxAttempts = 6) {
+    let lastErr;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            return await fn();
+        } catch (e) {
+            lastErr = e;
+            const status = e && e.status;
+            const msg = (e && e.message || '').toLowerCase();
+            const isConflict = status === 409 || msg.includes('does not match');
+            const isRateLimited = status === 403 && msg.includes('rate limit');
+            const isTransient = status >= 500;
+            if (isRateLimited) {
+                if (attempt === maxAttempts) throw e;
+                await new Promise(r => setTimeout(r, 2000 * attempt));
+                continue;
+            }
+            if ((!isConflict && !isTransient) || attempt === maxAttempts) throw e;
+            const backoff = Math.min(400 * Math.pow(1.6, attempt - 1), 4000);
+            await new Promise(r => setTimeout(r, backoff + Math.random() * 200));
+        }
+    }
+    throw lastErr;
+}
+
+function ghGetWithRetry(path) {
+    return ghWithRetry(() => ghGet(path));
+}
+
+function ghPutWithRetry(path, base64Content, message, sha) {
+    return ghWithRetry(() => ghPut(path, base64Content, message, sha));
+}
+
+/** Turns a raw error into a short, useful message for the queue UI. */
+function describeUploadError(e) {
+    const status = e && e.status;
+    const msg = (e && e.message) || 'Unknown error';
+    if (status === 401 || status === 403 && /bad credentials/i.test(msg)) return 'Token invalid or expired';
+    if (status === 403 && /rate limit/i.test(msg)) return 'GitHub rate limit — try again shortly';
+    if (status === 409 || /does not match/i.test(msg)) return 'Sync conflict — retry to fix';
+    if (status === 413 || /too large/i.test(msg)) return 'File too large for GitHub API (25MB limit)';
+    if (status === 404) return 'Repo or path not found — check settings';
+    return msg.length > 80 ? msg.slice(0, 80) + '…' : msg;
 }
 
 function fileToBase64(file) {
@@ -1726,52 +1786,101 @@ async function doUpload() {
     progressWrap.classList.add('show');
 
     const total = queue.length;
-    let done = 0;
-    let failedCount = 0;
+    let filesDone = 0;
     const succeededTitles = [];
 
-    for (const item of queue) {
-        item.status = 'uploading';
-        item.progress = 5;
-        renderQueue();
-        progressCount.textContent = `${done + 1} / ${total}`;
-        try {
-            progressLabel.textContent = `Reading ${item.file.name}…`;
-            progressFill.style.width = `${((done + 0.15) / total) * 100}%`;
-            item.progress = 20;
+    // ---- PHASE 1: upload every audio file to GitHub. ----
+    // Each file lives at its own path, so these uploads don't share a sha
+    // and can safely run concurrently — no read-modify-write race here.
+    // A small concurrency cap keeps us well under GitHub's abuse-rate
+    // limits and keeps the UI responsive rather than firing 15 requests
+    // at once.
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    async function worker() {
+        while (cursor < queue.length) {
+            const item = queue[cursor++];
+            if (item.fileUploaded) { // already uploaded on a prior attempt
+                filesDone++;
+                progressCount.textContent = `${filesDone} / ${total}`;
+                continue;
+            }
+            item.status = 'uploading';
+            item.progress = 10;
             renderQueue();
-            const base64 = await fileToBase64(item.file);
+            try {
+                progressLabel.textContent = `Uploading ${item.file.name}…`;
+                const base64 = await fileToBase64(item.file);
+                item.progress = 40;
+                renderQueue();
 
-            progressLabel.textContent = `Uploading ${item.file.name}…`;
-            progressFill.style.width = `${((done + 0.5) / total) * 100}%`;
-            item.progress = 55;
+                const safeName = sanitizeFilename(item.file.name);
+                const targetPath = `${MUSIC_DIR}/${safeName}`;
+                const existing = await ghGetWithRetry(targetPath);
+                await ghPutWithRetry(targetPath, base64, `Add music track: ${safeName}`, existing ? existing.sha : undefined);
+
+                item.fileUploaded = true;
+                item.safeName = safeName;
+                item.progress = 70;
+                item.error = null;
+            } catch (e) {
+                item.status = 'failed';
+                item.progress = 0;
+                item.error = describeUploadError(e);
+            }
+            filesDone++;
+            progressCount.textContent = `${filesDone} / ${total}`;
+            progressFill.style.width = `${(filesDone / total) * 70}%`;
             renderQueue();
-
-            const safeName = sanitizeFilename(item.file.name);
-            const targetPath = `${MUSIC_DIR}/${safeName}`;
-            const existing = await ghGet(targetPath);
-            await ghPut(targetPath, base64, `Add music track: ${safeName}`, existing ? existing.sha : undefined);
-
-            progressLabel.textContent = 'Updating playlist…';
-            progressFill.style.width = `${((done + 0.85) / total) * 100}%`;
-            item.progress = 85;
-            renderQueue();
-
-            const finalTitle = item.title.trim() || prettify(item.file.name);
-            await updatePlaylist(safeName, finalTitle, item.coverDataUrl);
-
-            item.status = 'done';
-            item.progress = 100;
-            succeededTitles.push(finalTitle);
-        } catch (e) {
-            item.status = 'failed';
-            item.progress = 0;
-            failedCount++;
         }
-        done++;
-        progressFill.style.width = `${(done / total) * 100}%`;
-        renderQueue();
     }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, queue.length) }, worker));
+
+    // ---- PHASE 2: single playlist.json update for every file that ----
+    // ---- uploaded successfully, merged and committed all at once.  ----
+    const readyItems = queue.filter(item => item.fileUploaded && item.status !== 'done');
+    if (readyItems.length) {
+        progressLabel.textContent = 'Updating playlist…';
+        renderQueue();
+        try {
+            await withPlaylistRetry(playlist => {
+                let next = playlist;
+                for (const item of readyItems) {
+                    const finalTitle = item.title.trim() || prettify(item.file.name);
+                    item._finalTitle = finalTitle;
+                    const prior = next.find(entry => (entry.file || entry.name) === item.safeName);
+                    next = next.filter(entry => (entry.file || entry.name) !== item.safeName);
+                    const entry = { file: item.safeName, title: finalTitle, addedAt: (prior && prior.addedAt) || new Date().toISOString() };
+                    const cover = item.coverDataUrl || (prior && prior.cover);
+                    if (cover) entry.cover = cover;
+                    if (prior && prior.tags && prior.tags.length) entry.tags = prior.tags;
+                    if (prior && prior.duration) entry.duration = prior.duration;
+                    next.push(entry);
+                }
+                return next;
+            }, `Add ${readyItems.length} track${readyItems.length === 1 ? '' : 's'}`);
+
+            for (const item of readyItems) {
+                item.status = 'done';
+                item.progress = 100;
+                item.error = null;
+                succeededTitles.push(item._finalTitle);
+            }
+        } catch (e) {
+            // The single playlist commit failed after retries — this is rare
+            // (e.g. token lost repo access mid-run) but keep the audio files
+            // marked uploaded so a retry only redoes this cheap step.
+            const msg = describeUploadError(e);
+            for (const item of readyItems) {
+                item.status = 'failed';
+                item.error = msg;
+            }
+        }
+    }
+    progressFill.style.width = '100%';
+    renderQueue();
+
+    const failedCount = queue.filter(q => q.status === 'failed').length;
 
     progressLabel.textContent = 'Done';
     setLastSynced(new Date());
@@ -1818,31 +1927,59 @@ async function writePlaylist(playlist, sha, message) {
 }
 
 /**
- * Runs a read-modify-write cycle against playlist.json with automatic
- * retry-on-conflict. GitHub's Contents API can briefly return a stale sha
- * right after a commit, so back-to-back writes (like uploading several
- * files in a row) can hit a 409 "sha does not match" error. Instead of
- * failing the whole item, we just re-fetch the latest playlist and retry
- * the same mutation a few times before giving up.
+ * A simple mutex so only one playlist read-modify-write cycle runs at a
+ * time from this tab. This doesn't fix cross-tab or cross-device races,
+ * but it removes the single biggest cause of 409s: our own upload loop
+ * firing overlapping GET+PUT pairs against playlist.json.
  */
-async function withPlaylistRetry(mutateFn, message, maxAttempts = 5) {
-    let lastErr;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-            const { playlist, sha } = await getPlaylist();
-            const next = mutateFn(playlist);
-            await writePlaylist(next, sha, message);
-            return next;
-        } catch (e) {
-            lastErr = e;
-            const msg = (e && e.message || '').toLowerCase();
-            const isConflict = msg.includes('409') || msg.includes('does not match') || msg.includes('sha');
-            if (!isConflict || attempt === maxAttempts) throw e;
-            // small backoff before re-reading the latest sha and retrying
-            await new Promise(r => setTimeout(r, 250 * attempt));
+let playlistQueueTail = Promise.resolve();
+function withPlaylistLock(fn) {
+    const run = playlistQueueTail.then(fn, fn);
+    // swallow errors here so one failed mutation doesn't wedge the queue
+    playlistQueueTail = run.catch(() => {});
+    return run;
+}
+
+/**
+ * Runs a read-modify-write cycle against playlist.json with automatic
+ * retry-on-conflict. GitHub's Contents API is eventually consistent, so a
+ * GET immediately after a PUT can still return a stale sha for up to a
+ * couple of seconds. Back-to-back writes (uploading several files in a
+ * row) reliably hit this. Instead of failing the whole item, we re-fetch
+ * the latest playlist and retry the same mutation, with backoff that
+ * grows enough to ride out real-world propagation delay.
+ */
+async function withPlaylistRetry(mutateFn, message, maxAttempts = 8) {
+    return withPlaylistLock(async () => {
+        let lastErr;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                const { playlist, sha } = await getPlaylist();
+                const next = mutateFn(playlist);
+                await writePlaylist(next, sha, message);
+                return next;
+            } catch (e) {
+                lastErr = e;
+                const status = e && e.status;
+                const msg = (e && e.message || '').toLowerCase();
+                const isConflict = status === 409 || msg.includes('409') || msg.includes('does not match') || msg.includes('sha');
+                const isRateLimited = status === 403 && msg.includes('rate limit');
+                if (isRateLimited) {
+                    // rate limits need a real pause, not a quick retry
+                    if (attempt === maxAttempts) throw e;
+                    await new Promise(r => setTimeout(r, 2000 * attempt));
+                    continue;
+                }
+                if (!isConflict || attempt === maxAttempts) throw e;
+                // exponential backoff + jitter, capped, to ride out GitHub's
+                // read-after-write propagation delay
+                const backoff = Math.min(400 * Math.pow(1.6, attempt - 1), 4000);
+                const jitter = Math.random() * 200;
+                await new Promise(r => setTimeout(r, backoff + jitter));
+            }
         }
-    }
-    throw lastErr;
+        throw lastErr;
+    });
 }
 
 async function updatePlaylist(filename, title, coverDataUrl, extra) {
