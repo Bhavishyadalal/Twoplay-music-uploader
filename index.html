@@ -186,15 +186,21 @@ a { color: var(--accent); }
 }
 @media (min-width: 860px) {
     .wrap { max-width: 900px; padding: 32px 32px 90px; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
-    .grid-2 > .stack { display: flex; flex-direction: column; gap: 18px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
+    .grid-3 > .stack { display: flex; flex-direction: column; gap: 18px; }
+    .grid-3 > .stack:nth-child(2) { grid-column: 1 / -1; }
+}
+@media (min-width: 1180px) {
+    .wrap { max-width: 1280px; }
+    .grid-3 { grid-template-columns: 1fr 1fr 1.15fr; }
+    .grid-3 > .stack:nth-child(2) { grid-column: auto; }
 }
 
 .topbar { animation: fade-up 0.4s ease both; }
 .tagline { animation: fade-up 0.4s ease 0.05s both; }
-.stack .card:nth-of-type(1), .grid-2 > .stack:first-child .card:nth-of-type(1) { animation-delay: 0.06s; }
-.stack .card:nth-of-type(2), .grid-2 > .stack:first-child .card:nth-of-type(2) { animation-delay: 0.14s; }
-.grid-2 > .stack:last-child .card:nth-of-type(1) { animation-delay: 0.1s; }
+.stack .card:nth-of-type(1), .grid-3 > .stack:nth-child(1) .card:nth-of-type(1) { animation-delay: 0.06s; }
+.grid-3 > .stack:nth-child(2) .card:nth-of-type(1) { animation-delay: 0.1s; }
+.grid-3 > .stack:nth-child(3) .card:nth-of-type(1) { animation-delay: 0.14s; }
 .footnote { animation: fade-in 0.6s ease 0.3s both; }
 
 /* header row */
@@ -300,7 +306,7 @@ html[data-theme="dark"] .card:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.36); 
 /* queue of files to upload */
 .queue-list {
     display: flex; flex-direction: column; gap: 8px; margin-top: 12px;
-    max-height: min(490px, 52vh); overflow-y: auto; overflow-x: hidden;
+    max-height: min(340px, 38vh); overflow-y: auto; overflow-x: hidden;
     padding-right: 4px; scroll-behavior: smooth;
 }
 .queue-list::-webkit-scrollbar { width: 7px; }
@@ -714,7 +720,7 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
     </div>
     <p class="tagline">Cozy music uploader — sends tracks straight to your repo.</p>
 
-    <div class="grid-2">
+    <div class="grid-3">
     <div class="stack">
 
     <!-- CONNECTION CARD -->
@@ -748,6 +754,10 @@ button:focus-visible, input:focus-visible, .dropzone:focus-visible, .track-row:f
             <span id="token-expiry-text"></span>
         </div>
     </div>
+
+    </div>
+
+    <div class="stack">
 
     <!-- UPLOAD CARD -->
     <div class="card">
